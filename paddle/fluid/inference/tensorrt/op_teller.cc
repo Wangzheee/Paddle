@@ -50,6 +50,10 @@ struct SimpleOpTypeSetTeller : public Teller {
 #if IS_TRT_VERSION_GE(7130)
     teller_set.insert("group_norm");
 #endif
+#if CUDA_VERSION >= 10200
+    teller_set.insert("reshape");
+    teller_set.insert("reshape2");
+#endif
   }
 
   bool operator()(const std::string& op_type, const framework::OpDesc& desc,
@@ -102,7 +106,6 @@ struct SimpleOpTypeSetTeller : public Teller {
       "dropout",
       "prelu",
       "conv2d_transpose",
-      "depthwise_conv2d_transpose",
       "leaky_relu",
       "fc",
       "shuffle_channel",
@@ -143,19 +146,6 @@ bool OpTeller::Tell(const framework::ir::Node* node, bool use_no_calib_int8,
           BOOST_GET_CONST(std::vector<int>, desc.GetAttr("paddings"));
 
       if (paddings.size() > 2) return false;
-// strides > 1 is only supported by trt7.0 above
-#if !IS_TRT_VERSION_GE(7000)
-      if (desc.HasAttr("strides")) {
-        const std::vector<int> strides =
-            BOOST_GET_CONST(std::vector<int>, desc.GetAttr("strides"));
-        // there is no issue if strides.size() less than 2
-        if (strides.size() > 1) {
-          for (size_t i = 0; i < strides.size(); i++) {
-            if (strides[i] > 1) return false;
-          }
-        }
-      }
-#endif
     }
 
     if (op_type == "pool2d") {
@@ -186,8 +176,7 @@ bool OpTeller::Tell(const framework::ir::Node* node, bool use_no_calib_int8,
     }
 
     if (op_type == "conv2d" || op_type == "conv2d_transpose" ||
-        op_type == "conv2d_fusion" || op_type == "depthwise_conv2d" ||
-        op_type == "depthwise_conv2d_transpose") {
+        op_type == "conv2d_fusion") {
       std::vector<int> paddings =
           BOOST_GET_CONST(std::vector<int>, desc.GetAttr("paddings"));
 
@@ -217,8 +206,7 @@ bool OpTeller::Tell(const framework::ir::Node* node, bool use_no_calib_int8,
         }
       }
 
-      if (op_type == "conv2d_transpose" ||
-          op_type == "depthwise_conv2d_transpose") {
+      if (op_type == "conv2d_transpose") {
         if (!desc.HasAttr("dilations")) {
           return false;
         } else {
@@ -238,20 +226,6 @@ bool OpTeller::Tell(const framework::ir::Node* node, bool use_no_calib_int8,
                 << desc.Output("Output").size() << " output.";
         return false;
       }
-
-// strides > 1 is only supported by trt7.0 above
-#if !IS_TRT_VERSION_GE(7000)
-      if (desc.HasAttr("strides")) {
-        const std::vector<int> strides =
-            BOOST_GET_CONST(std::vector<int>, desc.GetAttr("strides"));
-        // there is no issue if strides.size() less than 2
-        if (strides.size() > 1) {
-          for (size_t i = 0; i < strides.size(); i++) {
-            if (strides[i] > 1) return false;
-          }
-        }
-      }
-#endif
     }
 
     if (op_type == "matmul") {
@@ -429,6 +403,16 @@ bool OpTeller::Tell(const framework::ir::Node* node, bool use_no_calib_int8,
       const auto spatial_scale =
           BOOST_GET_CONST(float, desc.GetAttr("spatial_scale"));
       if (spatial_scale <= 0.f) return false;
+    }
+
+    if (op_type == "reshape" || op_type == "reshape2") {
+      if (!desc.HasAttr("shape")) {
+        return false;
+      } else {
+        std::vector<int> shape =
+            BOOST_GET_CONST(std::vector<int>, desc.GetAttr("shape"));
+        if (shape.size() >= nvinfer1::Dims::MAX_DIMS) return false;
+      }
     }
 
     if (op_type == "hard_swish") {
@@ -656,20 +640,6 @@ bool OpTeller::Tell(const framework::ir::Node* node, bool use_no_calib_int8,
     if (op_type == "multihead_matmul") {
       if (!with_dynamic_shape) {
         VLOG(3) << "the multihead_matmul does not support static shape yet";
-        return false;
-      }
-    }
-
-    if (op_type == "fc") {
-      int x_num_col_dims =
-          desc.HasAttr("x_num_col_dims")
-              ? BOOST_GET_CONST(int, desc.GetAttr("x_num_col_dims"))
-              : (desc.HasAttr("in_num_col_dims")
-                     ? BOOST_GET_CONST(int, desc.GetAttr("in_num_col_dims"))
-                     : 1);
-      if (x_num_col_dims < 1) {
-        VLOG(3) << "converter expects x_num_col_dims >= 1, "
-                   "but x_num_col_dims = %d.";
         return false;
       }
     }
