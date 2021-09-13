@@ -23,7 +23,7 @@ import paddle.fluid.core as core
 from paddle.fluid.core import AnalysisConfig
 from paddle.fluid.core import PassVersionChecker
 
-
+'''
 class FCFusePassTRTTest(InferencePassTest):
     def setUp(self):
         with fluid.program_guard(self.main_program, self.startup_program):
@@ -52,7 +52,6 @@ class FCFusePassTRTTest(InferencePassTest):
             use_gpu.append(True)
         for i in range(len(use_gpu)):
             self.check_output_with_option(use_gpu[i])
-
 
 class FCFusePassTRTStaticDims4Cols1Test(InferencePassTest):
     def setUp(self):
@@ -283,7 +282,7 @@ class FCFusePassTRTDynamicDims4Cols3Test(InferencePassTest):
             use_gpu.append(True)
         for i in range(len(use_gpu)):
             self.check_output_with_option(use_gpu[i])
-
+'''
 
 class FcQuantDequantFusePassTRTTest(QuantDequantTest):
     def setUp(self):
@@ -291,12 +290,54 @@ class FcQuantDequantFusePassTRTTest(QuantDequantTest):
             self.data = fluid.data(
                 name='data', shape=[1, 28, 28], dtype='float32')
             self.label = fluid.data(name='label', shape=[1, 1], dtype='int64')
-            fc_out = fluid.layers.fc(input=self.data,
-                                     size=10,
-                                     num_flatten_dims=1,
-                                     bias_attr=False,
-                                     act=None)
-            result = fluid.layers.relu(fc_out)
+            fc_out_1 = fluid.layers.fc(input=self.data,
+                                                size=128,
+                                                num_flatten_dims=2,
+                                                bias_attr=False,
+                                                act=None)
+            x_reshape = fluid.layers.reshape(fc_out_1, [1, 1, 112, 32])
+            y_reshape = fluid.layers.reshape(fc_out_1, [1, 1, 112, 32])
+
+            x_conv_out = fluid.layers.conv2d(
+                input=x_reshape,
+                num_filters=10,
+                filter_size=3,
+                groups=1,
+                padding=[1,1],
+                bias_attr=False,
+                use_cudnn=True,
+                act=None)          
+            y_conv_out = fluid.layers.conv2d(
+                input=y_reshape,
+                num_filters=10,
+                filter_size=3,
+                groups=1,
+                padding=[1,1],
+                bias_attr=False,
+                use_cudnn=True,
+                act=None)      
+
+            matmul_out = fluid.layers.matmul(
+                x=x_conv_out,
+                y=y_conv_out,
+                transpose_x=False,
+                transpose_y=True,
+                alpha=0)
+            tem = fluid.layers.softmax(matmul_out)
+
+            fc_out_1 = fluid.layers.fc(input=tem,
+                                                size=10,
+                                                num_flatten_dims=2,
+                                                bias_attr=False,
+                                                act=None)
+            fc_out_2 = fluid.layers.fc(input=fc_out_1,
+                                                size=3,
+                                                num_flatten_dims=2,
+                                                bias_attr=False,
+                                                act=None)                                             
+            reshape_out = fluid.layers.reshape(fc_out_2,[1,30])
+            result = fluid.layers.softmax(reshape_out)
+                                               
             loss = fluid.layers.cross_entropy(input=result, label=self.label)
             avg_loss = fluid.layers.mean(loss)
             return avg_loss, result
@@ -329,7 +370,7 @@ class FcQuantDequantFusePassTRTTest(QuantDequantTest):
         if core.is_compiled_with_cuda():
             use_gpu = True
             self.check_output_with_option(
-                use_gpu, atol=1e-2, flatten=False, rtol=1e-2)
+                use_gpu, atol=1e-1, flatten=False, rtol=1e-1)
             self.assertTrue(
                 PassVersionChecker.IsCompatible(
                     'quant_conv2d_dequant_fuse_pass'))
