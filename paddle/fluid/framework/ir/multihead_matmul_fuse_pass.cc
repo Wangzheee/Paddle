@@ -761,7 +761,7 @@ int MultiHeadMatmulV2FusePass::BuildFusionV2(Graph* graph,
       Node* eltadd0_b, Node* eltadd1_b, Node* eltadd2_b, Node* eltadd_qk_b,
       Node* reshape2, Node* reshape2_qkv_out, Node* scale, Node* scale_out,
       Node* softmax_qk, Node* eltadd0, Node* eltadd1, Node* eltadd2,
-      Node* matmul_qk) {
+      Node* matmul_qk, Node* reshape2_qkv) {
     auto scale_attr = BOOST_GET_CONST(float, scale->Op()->GetAttr("scale"));
 
     // mul (B * S * Hidden) x (Hidden * 3 * N * H) = (B * S * 3 * N * H)
@@ -905,14 +905,18 @@ int MultiHeadMatmulV2FusePass::BuildFusionV2(Graph* graph,
         multihead_op_desc.SetAttr("dp_probs", qkv_plugin_scale);
       }
     }
-
+    auto* multihead_out = reshape2_qkv->Op();
+    if (multihead_out->HasAttr("out_threshold")) {
+      auto multihead_out_scale =
+          BOOST_GET_CONST(float, multihead_out->GetAttr("out_threshold"));
+      multihead_op_desc.SetAttr("out_threshold", multihead_out_scale);
+    }
     auto* multihead = graph->CreateOpNode(&multihead_op_desc);
 
     IR_NODE_LINK_TO(input0, multihead);
     IR_NODE_LINK_TO(mul0_w, multihead);
     IR_NODE_LINK_TO(eltadd0_b, multihead);
     IR_NODE_LINK_TO(eltadd_qk_b, multihead);
-
     IR_NODE_LINK_TO(multihead, reshape2_qkv_out);
   };
 
@@ -1008,7 +1012,7 @@ int MultiHeadMatmulV2FusePass::BuildFusionV2(Graph* graph,
     fuse_creater(input0, mul0, mul1, mul2, mul0_out, mul1_out, mul2_out, mul0_w,
                  mul1_w, mul2_w, eltadd0_b, eltadd1_b, eltadd2_b, eltadd_qk_b,
                  reshape2_0, reshape2_qkv_out, scale, scale_out, softmax_qk,
-                 eltadd0, eltadd1, eltadd2, matmul_qk);
+                 eltadd0, eltadd1, eltadd2, matmul_qk, reshape2_qkv);
 
     std::unordered_set<const Node*> marked_nodes({eltadd0,
                                                   eltadd1,

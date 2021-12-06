@@ -103,6 +103,7 @@ class EmbEltwiseLayerNormOpConverter : public OpConverter {
         get_persistable_data(op_desc.Input("Scale").front(), &scale_dims);
     int64_t bias_size = framework::product(bias_dims);
     int64_t scale_size = framework::product(scale_dims);
+
     nvinfer1::ILayer* layer = nullptr;
     bool enable_int8 = op_desc.HasAttr("enable_int8");
 
@@ -142,7 +143,6 @@ class EmbEltwiseLayerNormOpConverter : public OpConverter {
           {"output_fp16", &output_fp16, nvinfer1::PluginFieldType::kINT32, 1},
       };
 
-      // remember to free
       nvinfer1::PluginFieldCollection* plugin_ptr =
           static_cast<nvinfer1::PluginFieldCollection*>(
               malloc(sizeof(*plugin_ptr) +
@@ -151,6 +151,35 @@ class EmbEltwiseLayerNormOpConverter : public OpConverter {
       plugin_ptr->fields = fields.data();
 
       std::vector<nvinfer1::ITensor*> plugin_inputs;
+      /*
+           auto word_id_name_dim =
+         engine_->GetITensor(word_id_name)->getDimensions();
+          std::cout<< "word_id_name_dim.nbDims: " <<
+         word_id_name_dim.nbDims<<std::endl;
+           for(int i=0;i<word_id_name_dim.nbDims;i++){
+               std::cout<< "word_id_name_dim.d[i]: " <<
+         word_id_name_dim.d[i]<<std::endl;
+           }
+
+           auto sent_id_name_dim =
+         engine_->GetITensor(sent_id_name)->getDimensions();
+           std::cout<< "sent_id_name_dim.nbDims: " <<
+         sent_id_name_dim.nbDims<<std::endl;
+           for(int i=0;i<sent_id_name_dim.nbDims;i++){
+               std::cout<< "sent_id_name_dim.d[i]: " <<
+         sent_id_name_dim.d[i]<<std::endl;
+           }
+
+           auto pos_id_name_dim =
+         engine_->GetITensor(pos_id_name)->getDimensions();
+           std::cout<< "pos_id_name_dim.nbDims: " <<
+         pos_id_name_dim.nbDims<<std::endl;
+           for(int i=0;i<pos_id_name_dim.nbDims;i++){
+               std::cout<< "pos_id_name_dim.d[i]: " <<
+         pos_id_name_dim.d[i]<<std::endl;
+           }
+
+     */
       plugin_inputs.emplace_back(
           engine_->GetITensor(word_id_name));  // word_embedding,
                                                // eval_placeholder_0
@@ -162,28 +191,93 @@ class EmbEltwiseLayerNormOpConverter : public OpConverter {
                                               // eval_placeholder_2
       auto max_seqlen_tensor =
           engine_->GetITensor(engine_->network()->getInput(3)->getName());
+      // engine_->SetTensorDynamicRange(max_seqlen_tensor, 1.0f);
       auto* shuffle_layer =
           TRT_ENGINE_ADD_LAYER(engine_, Shuffle, *max_seqlen_tensor);
       nvinfer1::Dims shape_dim;
       shape_dim.nbDims = 1;
       shape_dim.d[0] = -1;
       shuffle_layer->setReshapeDimensions(shape_dim);
+
+      shuffle_layer->setName(
+          ("Embeltwise_Shuffle_reshape (Output: max_seqlen " +
+           op_desc.Output("Out_0")[0] + ")")
+              .c_str());
+
+      engine_->SetTensorDynamicRange(shuffle_layer->getOutput(0), 100000.0f);
+
       plugin_inputs.emplace_back(
           shuffle_layer->getOutput(0));  // max_seqlen, eval_placeholder_3
 
       auto creator = GetPluginRegistry()->getPluginCreator(
-          "CustomEmbLayerNormPluginDynamic", "2");
+          "CustomEmbLayerNormPluginDynamic", "3");
 
       auto plugin_obj =
           creator->createPlugin("CustomEmbLayerNormPluginDynamic", plugin_ptr);
       auto plugin_layer = engine_->network()->addPluginV2(
           plugin_inputs.data(), plugin_inputs.size(), *plugin_obj);
-      layer = plugin_layer;
-      free(plugin_ptr);
-      auto output_name = op_desc.Output("Out")[0];
-      RreplenishLayerAndOutput(layer, "emb_eltwise_layernorm",
-                               {output_name, std::string("qkv_plugin_mask")},
-                               test_mode);
+      plugin_layer->setName(("CustomEmbLayerNormPluginDynamic_V3(Output: " +
+                             op_desc.Output("Out_0")[0] + ")")
+                                .c_str());
+      // plugin_layer->getOutput(0)->setName(op_desc.Output("Out_0")[0].c_str());
+      // auto plugin_layer_dim = plugin_layer->getOutput(0)->getDimensions();
+      /*std::cout<< "plugin_layer_dim.nbDims: " <<
+      plugin_layer_dim.nbDims<<std::endl;
+      for(int i=0;i<plugin_layer_dim.nbDims;i++){
+          std::cout<< "plugin_layer_dim.d[i]: " <<
+      plugin_layer_dim.d[i]<<std::endl;
+      }
+*/
+      /*
+      engine_->SetITensor(op_desc.Output("Out_0")[0],
+      plugin_layer->getOutput(0));
+      plugin_layer->getOutput(0)->setName(op_desc.Output("Out_0")[0].c_str());
+      engine_->SetITensor(op_desc.Output("Out_1")[0],
+      plugin_layer->getOutput(1));
+      plugin_layer->getOutput(0)->setName(op_desc.Output("Out_1")[0].c_str());
+*/
+      auto* shuffler_embed_0 =
+          TRT_ENGINE_ADD_LAYER(engine_, Shuffle, *(plugin_layer->getOutput(0)));
+      nvinfer1::Dims4 reshape_dim(0, 1, -1, 0);
+      shuffler_embed_0->setReshapeDimensions(reshape_dim);
+
+      auto* shuffler_embed = TRT_ENGINE_ADD_LAYER(
+          engine_, Shuffle, *(shuffler_embed_0->getOutput(0)));
+      nvinfer1::Dims4 reshape_dim_after(0, -1, 1, 1);
+      shuffler_embed->setReshapeDimensions(reshape_dim_after);
+      nvinfer1::Permutation transpose_embed{2, 1, 0, 3};
+      shuffler_embed->setSecondTranspose(transpose_embed);
+
+      engine_->SetITensor(op_desc.Output("Out_0")[0],
+                          shuffler_embed->getOutput(0));
+
+      shuffler_embed->setName(("Emb_eltwise_out_shuffler_transpose (Output: " +
+                               op_desc.Output("Out_0")[0] + ")")
+                                  .c_str());
+      /*float out_0_scale =
+          BOOST_GET_CONST(float, op_desc.GetAttr("out_0_threshold"));
+      engine_->SetTensorDynamicRange(plugin_layer->getOutput(0), out_0_scale);*/
+
+      float out_1_scale =
+          BOOST_GET_CONST(float, op_desc.GetAttr("out_1_threshold"));
+      engine_->SetTensorDynamicRange(plugin_layer->getOutput(1), out_1_scale);
+
+      auto* shuffler =
+          TRT_ENGINE_ADD_LAYER(engine_, Shuffle, *(plugin_layer->getOutput(1)));
+      nvinfer1::Permutation transpose{2, 1, 0, 3};
+      shuffler->setSecondTranspose(transpose);
+
+      shuffler->getOutput(0)->setName(op_desc.Output("Out_1")[0].c_str());
+      engine_->SetITensor(op_desc.Output("Out_1")[0], shuffler->getOutput(0));
+      /*   if (test_mode) {
+           engine_->DeclareOutput(op_desc.Output("Out_1")[0]);
+         }*/
+      shuffler->setName(
+          ("shuffler_after_CustomEmbLayerNormPluginDynamic_V3(Output: " +
+           op_desc.Output("Out_1")[0] + ")")
+              .c_str());
+      // engine_->SetTensorDynamicRange(shuffler->getOutput(0), out_1_scale);
+
     } else {
       bool with_fp16 =
           engine_->WithFp16() && !engine_->disable_trt_plugin_fp16();

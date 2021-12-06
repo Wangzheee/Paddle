@@ -140,7 +140,9 @@ class MultiheadMatMulOpConverter : public OpConverter {
           fc_layer = TRT_ENGINE_ADD_LAYER(engine_, FullyConnected, *input, n,
                                           weight, bias);
         }
-
+        fc_layer->setName(("Multihead: Convolution/FullyConnected: (Output: " +
+                           output_name + ")")
+                              .c_str());
         if (enable_int8) {
           PADDLE_ENFORCE_EQ(
               op_desc.HasAttr("fc_out_threshold"), true,
@@ -155,12 +157,12 @@ class MultiheadMatMulOpConverter : public OpConverter {
           }
         }
 
-        auto mask_tensor = engine_->GetITensor("qkv_plugin_mask");
+        // auto mask_tensor = engine_->GetITensor("qkv_plugin_mask");
 
         auto creator = GetPluginRegistry()->getPluginCreator(
-            "CustomQKVToContextPluginDynamic", "2");
+            "CustomQKVToContextPluginDynamic", "3");
         assert(creator != nullptr);
-        int type = static_cast<int>((engine_->WithFp16() == 1)
+        /*int type = static_cast<int>((engine_->WithFp16() == 1)
                                         ? nvinfer1::DataType::kHALF
                                         : nvinfer1::DataType::kFLOAT);
         if (enable_int8) {
@@ -168,15 +170,12 @@ class MultiheadMatMulOpConverter : public OpConverter {
           if (qkv2context_plugin_int8) {
             type = static_cast<int>(nvinfer1::DataType::kINT8);
           }
-        }
-        bool has_mask = true;
-        int var_seqlen = 1;
+        }*/
+        // bool has_mask = true;
+        // int var_seqlen = 1;
         std::vector<nvinfer1::PluginField> fields{
-            {"type_id", &type, nvinfer1::PluginFieldType::kINT32, 1},
             {"hidden_size", &hidden_out, nvinfer1::PluginFieldType::kINT32, 1},
-            {"num_heads", &head_number, nvinfer1::PluginFieldType::kINT32, 1},
-            {"has_mask", &has_mask, nvinfer1::PluginFieldType::kINT32, 1},
-            {"var_seqlen", &var_seqlen, nvinfer1::PluginFieldType::kINT32, 1}};
+            {"num_heads", &head_number, nvinfer1::PluginFieldType::kINT32, 1}};
         if (qkv2context_plugin_int8) {
           fields.push_back(
               {"dq_probs", &dp_probs, nvinfer1::PluginFieldType::kFLOAT32, 1});
@@ -195,7 +194,7 @@ class MultiheadMatMulOpConverter : public OpConverter {
 
         std::vector<nvinfer1::ITensor*> plugin_inputs;
         plugin_inputs.emplace_back(fc_layer->getOutput(0));
-        plugin_inputs.emplace_back(mask_tensor);
+        // plugin_inputs.emplace_back(mask_tensor);
         if (engine_->Has("ernie_pos_name")) {
           plugin_inputs.emplace_back(
               engine_->GetITensor(engine_->Get<std::string>("ernie_pos_name")));
@@ -207,6 +206,7 @@ class MultiheadMatMulOpConverter : public OpConverter {
         }
         auto max_seqlen_tensor =
             engine_->GetITensor(engine_->network()->getInput(3)->getName());
+        engine_->SetTensorDynamicRange(max_seqlen_tensor, 1);
         auto* shuffle_layer = TRT_ENGINE_ADD_LAYER(
             engine_, Shuffle,
             *const_cast<nvinfer1::ITensor*>(max_seqlen_tensor));
@@ -216,10 +216,17 @@ class MultiheadMatMulOpConverter : public OpConverter {
         shuffle_layer->setReshapeDimensions(shape_dim);
         plugin_inputs.emplace_back(
             shuffle_layer->getOutput(0));  // max_seqlen, eval_placeholder_3
-
+        shuffle_layer->setName(
+            ("Multihead: Shuffle: (Output: " + output_name + ")").c_str());
+        engine_->SetTensorDynamicRange(shuffle_layer->getOutput(0), 1);
         auto plugin_layer = engine_->network()->addPluginV2(
             plugin_inputs.data(), plugin_inputs.size(), *plugin);
         layer = plugin_layer;
+        /*auto out_dims = plugin_layer->getOutput(0)->getDimensions();
+        std::cout<< "out_dims.nbDims: " << out_dims.nbDims<<std::endl;
+        for(int i=0;i<out_dims.nbDims;i++){
+            std::cout<< "out_dims.d[i]: " << out_dims.d[i]<<std::endl;
+        }*/
       } else {
         PADDLE_ENFORCE_EQ(
             input->getDimensions().nbDims, 3,
@@ -252,8 +259,7 @@ class MultiheadMatMulOpConverter : public OpConverter {
             TRT_ENGINE_ADD_LAYER(engine_, Shuffle, *input);
         reshape_before_fc_layer->setReshapeDimensions(reshape_before_fc_dim);
         reshape_before_fc_layer->setName(
-            ("shuffle_before_multihead_mamul(Output: " + output_name + ")")
-                .c_str());
+            ("Multihead: Shuffle: (Output: " + output_name + ")").c_str());
 
         // add layer fc
         auto* fc_layer = TRT_ENGINE_ADD_LAYER(

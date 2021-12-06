@@ -68,7 +68,7 @@ class FcOpConverter : public OpConverter {
     // add shuffle after fc
     nvinfer1::Dims reshape_after_fc_dim;
     if (engine_->use_oss() && engine_->with_ernie() && x_dim.nbDims == 4 &&
-        x_dim.d[2] == 1 && x_dim.d[3] == 1 && x_num_col_dims == 1) {
+        x_dim.d[3] == 1 && x_num_col_dims == 1) {
       // If use tensorrt'oss, the x_dim and x_num_col_dims need change
       reshape_after_fc_dim.nbDims = 4;
     } else {
@@ -173,6 +173,7 @@ class FcOpConverter : public OpConverter {
         engine_->SetTensorDynamicRange(fc_layer_int8->getOutput(0), out_scale);
         auto* fc_after_reshape_int8 = reshape_after_fc(
             fc_layer_int8->getOutput(0), x_dim, x_num_col_dims);
+
         if (activation_type == "relu") {
           fc_after_reshape_int8->setName(
               ("fc_op_int8_reshape_after_fc: Shuffle (Output: " + output_name +
@@ -242,7 +243,7 @@ class FcOpConverter : public OpConverter {
     }
     // If use tensorrt'oss, the x_dim and x_num_col_dims need change
     if (engine_->use_oss() && engine_->with_ernie() && x_dim.nbDims == 4 &&
-        x_dim.d[2] == 1 && x_dim.d[3] == 1 && x_num_col_dims == 2) {
+        x_dim.d[3] == 1 && x_num_col_dims == 2) {
       x_num_col_dims = 1;
     }
     PADDLE_ENFORCE_GT(
