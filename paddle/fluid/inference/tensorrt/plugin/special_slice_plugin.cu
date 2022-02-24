@@ -113,12 +113,12 @@ nvinfer1::DataType SpecialSlicePluginDynamic::getOutputDataType(
 template <typename T>
 __global__ void SpecialSliceKernel(const T* slice_input,
                                    const int32_t* cu_seqlens, T* output) {
-  const int hidden = blockDim.x * gridDim.y;
-  const int batch = blockIdx.x;
-  const int local_idx = blockIdx.y * blockDim.y + threadIdx.x;
+  const int hidden = blockDim.x * blockDim.y;
+  const int hidden_id = blockDim.x * threadIdx.y + threadIdx.x;
+  const int batch_id = blockIdx.x;
 
-  output[batch * hidden + local_idx] =
-      slice_input[cu_seqlens[batch] * hidden + local_idx];
+  output[batch_id * hidden + hidden_id] =
+      slice_input[cu_seqlens[batch_id] * hidden + hidden_id];
 }
 
 int SpecialSlicePluginDynamic::enqueue(
@@ -136,16 +136,18 @@ int SpecialSlicePluginDynamic::enqueue(
   PADDLE_ENFORCE_EQ(hidden % 128, 0, platform::errors::InvalidArgument(
                                          "hidden should be multiple of 128."));
 
-  constexpr int num_threads = 128;
-  const dim3 blocks(out_dims.d[0], hidden / num_threads);
-
   const half* slice_input = static_cast<const half*>(inputs[0]);
   const int32_t* cu_seqlens = static_cast<const int32_t*>(inputs[1]);
+
   half* output = static_cast<half*>(outputs[0]);
 
-  SpecialSliceKernel<<<blocks, num_threads, 0, stream>>>(slice_input,
-                                                         cu_seqlens, output);
+  const int32_t num_threads_x = 128;
+  const int32_t num_threads_y = hidden / num_threads_x;
+  const dim3 num_threads(num_threads_x, num_threads_y);
+  const int32_t num_blocks = out_dims.d[0];  // batch size
 
+  SpecialSliceKernel<<<num_blocks, num_threads, 0, stream>>>(
+      slice_input, cu_seqlens, output);
   return cudaGetLastError() != cudaSuccess;
 }
 
