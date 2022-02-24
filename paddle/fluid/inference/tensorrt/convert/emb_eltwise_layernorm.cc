@@ -185,8 +185,8 @@ class EmbEltwiseLayerNormOpConverter : public OpConverter {
                                {output_name, std::string("qkv_plugin_mask")},
                                test_mode);
     } else {
-      bool with_fp16 =
-          engine_->WithFp16() && !engine_->disable_trt_plugin_fp16();
+      bool with_fp16 = false;
+      //          engine_->WithFp16() && !engine_->disable_trt_plugin_fp16();
       float eps = BOOST_GET_CONST(float, op_desc.GetAttr("epsilon"));
       plugin::DynamicPluginTensorRT* plugin = nullptr;
       plugin = new plugin::EmbEltwiseLayernormPluginDynamic(
