@@ -170,11 +170,6 @@ bool dispatch_dual_gemm_scale_bias_swiglu(DualGemmEpilogueAllParams params) {
   size_t workspace_size = Gemm::get_workspace_size(arguments);
   phi::Allocator* allocator = paddle::GetAllocator(params.place);
   auto workspace = allocator->Allocate(workspace_size);
-
-  std::cout << "workspace_size: " << workspace_size << std::endl;
-  std::cout << "workspace.place(): " << workspace->place() << std::endl;
-  std::cout << "workspace.size(): " << workspace->size() << std::endl;
-
   status = gemm_op.initialize(arguments, workspace->ptr(), params.stream);
 
   if (status != cutlass::Status::kSuccess) {
