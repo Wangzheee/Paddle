@@ -56,11 +56,11 @@ bool dispatch_gemm_scale_bias_relu(GemmEpilogueAllParams params) {
 
   // This code section describes the tile size a thread block will compute
   using ShapeMMAThreadBlock =
-      cutlass::gemm::GemmShape<128, 64, 64>;  // <- threadblock tile M = 128, N
+      cutlass::gemm::GemmShape<64, 64, 64>;  // <- threadblock tile M = 128, N
                                                // = 256, K = 64
   // This code section describes tile size a warp will compute
   using ShapeMMAWarp =
-      cutlass::gemm::GemmShape<32, 64, 64>;  // <- warp tile M = 64, N = 64, K =
+      cutlass::gemm::GemmShape<32, 32, 64>;  // <- warp tile M = 64, N = 64, K =
                                              // 64
   // This code section describes the size of MMA op
   using ShapeMMAOp = cutlass::gemm::GemmShape<16, 8, 32>;  // <- MMA Op tile M =
@@ -68,7 +68,7 @@ bool dispatch_gemm_scale_bias_relu(GemmEpilogueAllParams params) {
 
   // This code section describes how threadblocks are scheduled on GPU
   using SwizzleThreadBlock =
-      cutlass::gemm::threadblock::GemmIdentityThreadblockSwizzle<>;  // <- ??
+      cutlass::gemm::threadblock::GemmIdentityThreadblockSwizzle<4>;  // <- ??
 
   using EpilogueOp = cutlass::epilogue::thread::LinearCombinationRelu<
       ElementOutput,  // <- data type of output matrix

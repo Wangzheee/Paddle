@@ -54,11 +54,11 @@ class TestFP8MatmulOp(unittest.TestCase):
         for self.device in ["gpu"]:
             paddle.device.set_device(self.device)
             for self.dtype in ["float8_e4m3fn"]:
-                input1 = paddle.ones([2, 16, 32], dtype=self.dtype)
-                input2 = paddle.ones([2, 32, 64], dtype=self.dtype)
+                input1 = paddle.ones([1, 1280, 2048], dtype=self.dtype)
+                input2 = paddle.ones([1, 2048, 6144], dtype=self.dtype)
 
-                bias_fp16 = paddle.ones([64], dtype="float16")
-                bias_bf16 = paddle.ones([64], dtype="bfloat16")
+                bias_fp16 = paddle.ones([6144], dtype="float16")
+                bias_bf16 = paddle.ones([6144], dtype="bfloat16")
 
                 input5 = np.ones((16, 32)).astype("float32")
                 input6 = np.ones((32, 64)).astype("float32")
