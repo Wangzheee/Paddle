@@ -102,13 +102,13 @@ void fp8_fp8_fp8_dual_gemm(
   std::vector<int64_t> bias_dims0{};
   std::vector<int64_t> bias_dims1{};
   if (bias0) {
-    bias_data0 = reinterpret_cast<void*>(const_cast<phi::dtype::float8_e4m3fn*>(
-        bias0.get().data<phi::dtype::float8_e4m3fn>()));
+    bias_data0 = reinterpret_cast<void*>(const_cast<phi::dtype::float16*>(
+        bias0.get().data<phi::dtype::float16>()));
     bias_dims0 = common::vectorize(bias0.get().dims());
   }
   if (bias1) {
-    bias_data1 = reinterpret_cast<void*>(const_cast<phi::dtype::float8_e4m3fn*>(
-        bias1.get().data<phi::dtype::float8_e4m3fn>()));
+    bias_data1 = reinterpret_cast<void*>(const_cast<phi::dtype::float16*>(
+        bias1.get().data<phi::dtype::float16>()));
     bias_dims1 = common::vectorize(bias1.get().dims());
   }
   DualGemmEpilogueAllParams params = {

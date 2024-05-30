@@ -34,6 +34,7 @@ bool dispatch_dual_gemm_scale_bias_swiglu(DualGemmEpilogueAllParams params) {
       std::is_same_v<InputType, phi::dtype::float8_e4m3fn>,
       cutlass::float_e4m3_t,
       cutlass::float_e5m2_t>;
+  using ElementInputC = cutlass::half_t;
   using ElementOutput = typename std::conditional_t<
       std::is_same_v<OutType, phi::dtype::float8_e4m3fn>,
       cutlass::float_e4m3_t,
@@ -58,11 +59,11 @@ bool dispatch_dual_gemm_scale_bias_swiglu(DualGemmEpilogueAllParams params) {
 
   // This code section describes the tile size a thread block will compute
   using ShapeMMAThreadBlock =
-      cutlass::gemm::GemmShape<128, 64, 64>;  // <- threadblock tile M = 128, N
-                                              // = 256, K = 64
+      cutlass::gemm::GemmShape<64, 64, 64>;  // <- threadblock tile M = 64, N
+                                              // = 64, K = 64
   // This code section describes tile size a warp will compute
   using ShapeMMAWarp =
-      cutlass::gemm::GemmShape<32, 64, 64>;  // <- warp tile M = 64, N = 64, K =
+      cutlass::gemm::GemmShape<32, 32, 64>;  // <- warp tile M = 32, N = 32, K =
                                              // 64
   // This code section describes the size of MMA op
   using ShapeMMAOp = cutlass::gemm::GemmShape<16, 8, 32>;  // <- MMA Op tile M =
@@ -73,8 +74,8 @@ bool dispatch_dual_gemm_scale_bias_swiglu(DualGemmEpilogueAllParams params) {
       cutlass::gemm::threadblock::GemmIdentityThreadblockSwizzle<>;  // <- ??
 
   using EpilogueOp0 = cutlass::epilogue::thread::LinearCombination<
-      ElementOutput,  // <- data type of output matrix
-      128 / cutlass::sizeof_bits<ElementOutput>::
+      ElementInputC,  // <- data type of output matrix
+      128 / cutlass::sizeof_bits<ElementInputC>::
                 value,     // <- the number of elements per vectorized
                            // memory access. For a byte, it's 16
                            // elements. This becomes the vector width of
@@ -87,8 +88,8 @@ bool dispatch_dual_gemm_scale_bias_swiglu(DualGemmEpilogueAllParams params) {
 
   using EpilogueOp1 = cutlass::epilogue::thread::LeftSiLUAndMul<
       ElementOutput,
-      128 / cutlass::sizeof_bits<ElementOutput>::value,
-      ElementOutput,
+      128 / cutlass::sizeof_bits<ElementInputC>::value,
+      ElementInputC,
       ElementCompute>;
 
   // Number of pipelines you want to use
@@ -102,6 +103,7 @@ bool dispatch_dual_gemm_scale_bias_swiglu(DualGemmEpilogueAllParams params) {
                                                ElementInputB,
                                                LayoutInputB,
                                                LayoutInputB,
+                                               ElementInputC,
                                                ElementOutput,
                                                LayoutOutput,
                                                ElementAccumulator,
@@ -138,11 +140,11 @@ bool dispatch_dual_gemm_scale_bias_swiglu(DualGemmEpilogueAllParams params) {
        params.lda},
       {reinterpret_cast<ElementInputB*>(const_cast<void*>(params.B0)),
        params.ldb},
-      {reinterpret_cast<ElementOutput*>(const_cast<void*>(params.bias0)), 0},
+      {reinterpret_cast<ElementInputC*>(const_cast<void*>(params.bias0)), 0},
       nullptr_ref,
       {reinterpret_cast<ElementInputB*>(const_cast<void*>(params.B1)),
        params.ldb},
-      {reinterpret_cast<ElementOutput*>(const_cast<void*>(params.bias1)), 0},
+      {reinterpret_cast<ElementInputC*>(const_cast<void*>(params.bias1)), 0},
       nullptr_ref,
       {reinterpret_cast<ElementOutput*>(const_cast<void*>(params.D)),
        params.ldd},
