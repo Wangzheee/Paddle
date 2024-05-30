@@ -1218,6 +1218,7 @@ def eye(num_rows, num_columns=None, dtype=None, name=None):
                 'float16',
                 'float32',
                 'float64',
+                'uint16',
                 'int32',
                 'int64',
                 'complex64',
@@ -1920,7 +1921,7 @@ def diagflat(x, offset=0, name=None):
         check_dtype(
             x.dtype,
             'x',
-            ['float16', 'float32', 'float64', 'int32', 'int64'],
+            ['float16', 'float32', 'float64', 'int32', 'int64', 'uint16'],
             'diagflat',
         )
         check_type(offset, 'offset', (int), 'diagflat')
@@ -2043,6 +2044,7 @@ def diag(x, offset=0, padding_value=0, name=None):
                 'uint16',
                 'float32',
                 'float64',
+                'uint16',
                 'int32',
                 'int64',
                 'complex64',

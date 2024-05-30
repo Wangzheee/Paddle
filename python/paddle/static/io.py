@@ -1039,7 +1039,7 @@ def save_vars(
 
     """
     if in_pir_mode():
-        return save_vars_pir(dirname, main_program, vars, predicate, filename)
+        return save_vars_pir(dirname, main_program, vars, filename)
 
     save_to_memory = False
     if dirname is None and filename is None:
@@ -1208,9 +1208,7 @@ def load_vars(
 
     """
     if in_pir_mode():
-        return load_vars_pir(
-            executor, dirname, main_program, vars, predicate, filename
-        )
+        return load_vars_pir(executor, dirname, main_program, vars, filename)
 
     vars_from_memory = False
     if dirname is not None:
@@ -1739,6 +1737,7 @@ def set_program_state(program, state_dict):
     if in_pir_mode():
         params, opts = get_pir_parameters(program)
         parameter_list = params + opts
+        parameter_list = [var for var in parameter_list if var.persistable]
     else:
         parameter_list = list(filter(is_persistable, program.list_vars()))
 
