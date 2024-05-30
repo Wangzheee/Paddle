@@ -74,8 +74,10 @@ template <
     typename LayoutB0_,
     /// Layout type for B1 matrix operand
     typename LayoutB1_,
-    /// Element type for C and D matrix operands
+    /// Element type for C matrix operands
     typename ElementC_,
+    /// Layout type for D matrix operands
+    typename ElementD_,
     /// Layout type for C and D matrix operands
     typename LayoutC_,
     /// Element type for internal accumulation
@@ -141,9 +143,10 @@ class DualGemm {
   using TensorRefB0 = TensorRef<ElementB const, LayoutB0>;
   using TensorRefB1 = TensorRef<ElementB const, LayoutB1>;
   using ElementC = ElementC_;
+  using ElementD = ElementD_;
   using LayoutC = LayoutC_;
   using TensorRefC = TensorRef<ElementC const, LayoutC>;
-  using TensorRefD = TensorRef<ElementC, LayoutC>;
+  using TensorRefD = TensorRef<ElementD, LayoutC>;
   using ElementAccumulator = ElementAccumulator_;
   using OperatorClass = OperatorClass_;
   using ArchTag = ArchTag_;
@@ -237,11 +240,19 @@ class DualGemm {
           kPartitionsK,
           EpilogueOutputOp1,
           EpilogueOutputOp1::kCount>::Epilogue;
+  using Epilogue2 =
+      typename cutlass::epilogue::threadblock::DefaultEpilogueTensorOp<
+          ThreadblockShape,
+          typename DualMma::Operator1,
+          kPartitionsK,
+          EpilogueOutputOp2,
+          EpilogueOutputOp2::kCount>::Epilogue;
 
   /// Define the kernel-level GEMM operator.
   using DualGemmKernel = kernel::DualGemm<DualMma,
                                           Epilogue0,
                                           Epilogue1,
+                                          Epilogue2,
                                           EpilogueOutputOp2,
                                           ThreadblockSwizzle,
                                           kSplitKSerial,
@@ -263,7 +274,7 @@ class DualGemm {
     TensorRef<ElementB const, LayoutB1> ref_B1;
     TensorRef<ElementC const, LayoutC> ref_C1;
     TensorRef<ElementC, LayoutC> ref_D1;
-    TensorRef<ElementC, LayoutC> ref_D2;
+    TensorRef<ElementD, LayoutC> ref_D2;
     typename EpilogueOutputOp0::Params epilogue0;
     typename EpilogueOutputOp1::Params epilogue1;
     typename EpilogueOutputOp2::Params epilogue2;
@@ -295,7 +306,7 @@ class DualGemm {
               TensorRef<ElementB const, LayoutB1> ref_B1_,
               TensorRef<ElementC const, LayoutC> ref_C1_,
               TensorRef<ElementC, LayoutC> ref_D1_,
-              TensorRef<ElementC, LayoutC> ref_D2_,
+              TensorRef<ElementD, LayoutC> ref_D2_,
               typename EpilogueOutputOp0::Params epilogue0_ =
                   typename EpilogueOutputOp0::Params(),
               typename EpilogueOutputOp1::Params epilogue1_ =

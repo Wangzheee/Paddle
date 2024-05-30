@@ -220,7 +220,7 @@ class TestFP8DualMatmulOp(unittest.TestCase):
                 input3 = paddle.ones([4, 16, 32], dtype=self.dtype)
                 input4 = paddle.ones([4, 64, 32], dtype=self.dtype)
 
-                bias = paddle.ones([64], dtype=self.dtype)
+                bias = paddle.ones([64], dtype="float16")
                 bias_fp16 = paddle.ones([64], dtype="float16")
                 bias_bf16 = paddle.ones([64], dtype="bfloat16")
 

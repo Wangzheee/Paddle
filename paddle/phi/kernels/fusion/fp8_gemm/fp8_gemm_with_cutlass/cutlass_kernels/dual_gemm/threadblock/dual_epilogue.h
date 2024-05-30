@@ -79,6 +79,8 @@ template <typename Shape_,  ///< Shape of threadblock tile (concept: GemmShape)
           int PartitionsK,  ///< Number of partitions of the K dimension
           typename OutputTileIterator_,  ///< Tile iterator reading and writing
                                          ///< output tensors
+          typename OutputTileIterator2_, ///< Tile iterator reading and writing
+                                         ///< output tensors
           typename AccumulatorFragmentIterator_,  ///< Fragment iterator
                                                   ///< selecting accumulators
           typename WarpTileIterator_,    ///< Warp-scoped tile iterator writing
@@ -114,6 +116,7 @@ class DualEpilogue {
   static bool constexpr kStoreD0 = StoreD0;
   static bool constexpr kStoreD1 = StoreD1;
   using OutputTileIterator = OutputTileIterator_;
+  using OutputTileIterator2 = OutputTileIterator2_;
   using AccumulatorFragmentIterator = AccumulatorFragmentIterator_;
   using WarpTileIterator = WarpTileIterator_;
   using SharedLoadIterator = SharedLoadIterator_;
@@ -150,6 +153,11 @@ class DualEpilogue {
   /// Array type used to output
   using OutputAccessType = Array<typename OutputTileIterator::Element,
                                  OutputTileIterator::kElementsPerAccess>;
+  
+  /// Array type used to output
+  using OutputAccessType2 = Array<typename OutputTileIterator2::Element, 
+                                  OutputTileIterator2::kElementsPerAccess>;
+
 
   /// Array type used by output functor
   using AccumulatorAccessType = Array<typename WarpTileIterator::Element,
@@ -248,7 +256,7 @@ class DualEpilogue {
                   OutputOp2 const &output_op2,
                   OutputTileIterator dest0,
                   OutputTileIterator dest1,
-                  OutputTileIterator dest2,
+                  OutputTileIterator2 dest2,
                   AccumulatorTile const &accumulator0,
                   AccumulatorTile const &accumulator1,
                   OutputTileIterator source_iterator[2],
@@ -341,9 +349,11 @@ class DualEpilogue {
       // Compute the output result
       //
 
-      typename OutputTileIterator::Fragment output_fragment[3];
+      typename OutputTileIterator::Fragment output_fragment[2];
+      typename OutputTileIterator2::Fragment output_fragment_final;
 
       apply_output_operator_(output_fragment,
+                             output_fragment_final,
                              output_op0,
                              output_op1,
                              output_op2,
@@ -364,7 +374,7 @@ class DualEpilogue {
         ++dest1;
       }
       if (writeToD2) {
-        dest2.store(output_fragment[2]);
+        dest2.store(output_fragment_final);
         ++dest2;
       }
     }
@@ -405,17 +415,19 @@ class DualEpilogue {
   /// Helper to invoke the output functor over each vector of output
   CUTLASS_DEVICE
   void apply_output_operator_(
-      typename OutputTileIterator::Fragment (&output_fragment)[3],
+      typename OutputTileIterator::Fragment (&output_fragment)[2],
+      typename OutputTileIterator2::Fragment &output_fragment_final,
       OutputOp0 const &output_op0,
       OutputOp1 const &output_op1,
       OutputOp2 const &output_op2,
       typename SharedLoadIterator::Fragment const &aligned_accum_fragment0,
       typename SharedLoadIterator::Fragment const &aligned_accum_fragment1,
       typename OutputTileIterator::Fragment const (&source_fragment)[2]) {
-    OutputAccessType *output_frag_ptr[3] = {
+    OutputAccessType *output_frag_ptr[2] = {
         reinterpret_cast<OutputAccessType *>(&output_fragment[0]),
-        reinterpret_cast<OutputAccessType *>(&output_fragment[1]),
-        reinterpret_cast<OutputAccessType *>(&output_fragment[2])};
+        reinterpret_cast<OutputAccessType *>(&output_fragment[1])};
+
+    OutputAccessType2* output_frag_final_ptr = reinterpret_cast<OutputAccessType2 *>(&output_fragment_final);
 
     AccumulatorAccessType const *compute_frag_ptr[2] = {
         reinterpret_cast<AccumulatorAccessType const *>(
@@ -437,7 +449,7 @@ class DualEpilogue {
           output_op0(compute_frag_ptr[0][i], source_frag_ptr[0][i]);
       output_frag_ptr[1][i] =
           output_op1(compute_frag_ptr[1][i], source_frag_ptr[1][i]);
-      output_frag_ptr[2][i] =
+      output_frag_final_ptr[i] = 
           output_op2(output_frag_ptr[0][i], output_frag_ptr[1][i]);
     }
   }
