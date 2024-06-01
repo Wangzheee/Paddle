@@ -68,7 +68,7 @@ bool dispatch_gemm_scale_gelu(GemmEpilogueAllParams params) {
 
   // This code section describes how threadblocks are scheduled on GPU
   using SwizzleThreadBlock =
-      cutlass::gemm::threadblock::GemmIdentityThreadblockSwizzle<4>;  // <- ??
+      cutlass::gemm::threadblock::GemmIdentityThreadblockSwizzle<>;  // <- ??
 
   using EpilogueOp = cutlass::epilogue::thread::LinearCombinationGELU<
       ElementOutput,  // <- data type of output matrix
@@ -84,7 +84,7 @@ bool dispatch_gemm_scale_gelu(GemmEpilogueAllParams params) {
                               // combination function
 
   // Number of pipelines you want to use
-  constexpr int NumStages = 2;
+  constexpr int NumStages = 4;
 
   using Gemm =
       cutlass::gemm::device::GemmUniversal<ElementInputA,
