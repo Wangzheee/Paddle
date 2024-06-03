@@ -921,7 +921,11 @@ void CublasLtMatmulFP8(const phi::GPUContext& dev_ctx,
                                         A_desc_,
                                         Bias_desc_,
                                         C_desc_,
+#if CUDA_VERSION >= 11020
                                         algo,
+#else
+                                        nullptr,
+#endif
                                         &heurResult);
   PADDLE_ENFORCE_EQ(
       status,
@@ -944,11 +948,8 @@ void CublasLtMatmulFP8(const phi::GPUContext& dev_ctx,
                                Bias_desc_,
                                out->data<T>(),
                                C_desc_,
-                               // nullptr,
                                algo,
-                               //  nullptr,
                                temp_workspace->ptr(),  // NOLINT
-                               // 0,
                                temp_workspace_size,
                                dev_ctx.stream());
   PADDLE_CUBLASLT_STATUS_CHECK(cublasLtMatmul);
