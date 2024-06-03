@@ -85,11 +85,13 @@ class CublasLtAlgoCache {
                      cublasLtMatmulDesc_t matmul_desc,
                      cublasLtMatrixLayout_t a_desc,
                      cublasLtMatrixLayout_t b_desc,
+                     cublasLtMatrixLayout_t bias_desc,
                      cublasLtMatrixLayout_t c_desc,
                      void* alpha,
                      void* beta,
                      const InT* a,
                      const InT* b,
+                     const OutT* bias,
                      OutT* c,
                      CublasLtAlgoSelectorParam& param,  // NOLINT
                      cudaEvent_t& start_event,          // NOLINT
@@ -101,7 +103,7 @@ class CublasLtAlgoCache {
                                           matmul_desc,
                                           a_desc,
                                           b_desc,
-                                          c_desc,
+                                          bias_desc,
                                           c_desc,
                                           &param.algo,
                                           &heuristic_result);
@@ -123,8 +125,8 @@ class CublasLtAlgoCache {
                                    b,
                                    b_desc,
                                    beta,
-                                   c,
-                                   c_desc,
+                                   bias,
+                                   bias_desc,
                                    c,
                                    c_desc,
                                    &param.algo,
@@ -155,20 +157,21 @@ class CublasLtAlgoCache {
                                            int batch_count,
                                            const InT* a,
                                            const InT* b,
+                                           const OutT* bias,
                                            OutT* c,
                                            void* alpha,
                                            void* beta,
                                            cublasLtMatmulDesc_t matmul_desc,
                                            cublasLtMatrixLayout_t a_desc,
                                            cublasLtMatrixLayout_t b_desc,
+                                           cublasLtMatrixLayout_t bias_desc,
                                            cublasLtMatrixLayout_t c_desc,
                                            cublasComputeType_t compute_type,
                                            cudaDataType_t scale_type,
                                            cudaDataType_t a_type,
                                            cudaDataType_t b_type,
+                                           cudaDataType_t bias_type,
                                            cudaDataType_t c_type,
-                                           //  void* workspace,
-                                           //  size_t workspace_size,
                                            cudaStream_t stream) {
     // If we don't have config file and we donot search, here return nullptr
     if (!has_config_file_ && search_times_ <= 0) {
@@ -183,6 +186,7 @@ class CublasLtAlgoCache {
     HashMatmulDesc_(matmul_desc, &seed, hash_fn);
     HashMatrixLayoutDesc_(a_desc, &seed, hash_fn);
     HashMatrixLayoutDesc_(b_desc, &seed, hash_fn);
+    HashMatrixLayoutDesc_(bias_desc, &seed, hash_fn);
     HashMatrixLayoutDesc_(c_desc, &seed, hash_fn);
 
     cublasLtMatmulAlgo_t ret;
@@ -214,7 +218,7 @@ class CublasLtAlgoCache {
                                            scale_type,
                                            a_type,
                                            b_type,
-                                           c_type,
+                                           bias_type,
                                            c_type,
                                            requested_algo_count_,
                                            algo_ids,
@@ -236,7 +240,7 @@ class CublasLtAlgoCache {
                                            scale_type,
                                            a_type,
                                            b_type,
-                                           c_type,
+                                           bias_type,
                                            c_type,
                                            algo_ids[idx],
                                            &algo);
@@ -399,7 +403,7 @@ class CublasLtAlgoCache {
                                                             matmul_desc,
                                                             a_desc,
                                                             b_desc,
-                                                            c_desc,
+                                                            bias_desc,
                                                             c_desc,
                                                             &algo,
                                                             &heurResult);
@@ -437,7 +441,7 @@ class CublasLtAlgoCache {
                                                         matmul_desc,
                                                         a_desc,
                                                         b_desc,
-                                                        c_desc,
+                                                        bias_desc,
                                                         c_desc,
                                                         &algo,
                                                         &heurResult);
@@ -489,11 +493,13 @@ class CublasLtAlgoCache {
                     matmul_desc,
                     a_desc,
                     b_desc,
+                    bias_desc,
                     c_desc,
                     alpha,
                     beta,
                     a,
                     b,
+                    bias,
                     c,
                     params[i],
                     start_event,
@@ -734,11 +740,13 @@ void CublasLtMatmulFP8(const phi::GPUContext& dev_ctx,
   cublasStatus_t status;
   auto A_type = CUDA_R_8F_E4M3;
   auto B_type = CUDA_R_8F_E4M3;
+  auto Bias_type = GetCublasLtDataType<T>();
   auto C_type = GetCublasLtDataType<T>();
 
   cublasLtMatmulDesc_t matmul_desc_;
   cublasLtMatrixLayout_t A_desc_;
   cublasLtMatrixLayout_t B_desc_;
+  cublasLtMatrixLayout_t Bias_desc_;
   cublasLtMatrixLayout_t C_desc_;
   float alpha_ = scale;
   float beta_ = 0.0f;
@@ -765,66 +773,38 @@ void CublasLtMatmulFP8(const phi::GPUContext& dev_ctx,
   cublasLtEpilogue_t epilogue;
   const T* bias_ptr = nullptr;
   if (bias) {
+    beta_ = 1.0f;
     bias_ptr = const_cast<T*>(bias.get().data<T>());
+  } 
+  if (activation_type == "gelu") {
+    epilogue = CUBLASLT_EPILOGUE_GELU;
     status =
-        dyl::cublasLtMatmulDescSetAttribute(matmul_desc_,
-                                            CUBLASLT_MATMUL_DESC_BIAS_POINTER,
-                                            &bias_ptr,
-                                            sizeof(bias_ptr));
+          dyl::cublasLtMatmulDescSetAttribute(matmul_desc_,
+                                              CUBLASLT_MATMUL_DESC_EPILOGUE,
+                                              &epilogue,
+                                              sizeof(epilogue));
     PADDLE_CUBLASLT_STATUS_CHECK(cublasLtMatmulDescSetAttribute);
-    if (activation_type == "" || activation_type == "identity") {
-      epilogue = CUBLASLT_EPILOGUE_BIAS;
-      status =
+  } else if (activation_type == "relu") {
+    epilogue = CUBLASLT_EPILOGUE_RELU;
+    status =
           dyl::cublasLtMatmulDescSetAttribute(matmul_desc_,
                                               CUBLASLT_MATMUL_DESC_EPILOGUE,
                                               &epilogue,
                                               sizeof(epilogue));
-      PADDLE_CUBLASLT_STATUS_CHECK(cublasLtMatmulDescSetAttribute);
-    } else if (activation_type == "gelu") {
-      epilogue = CUBLASLT_EPILOGUE_GELU_BIAS;
-      status =
-          dyl::cublasLtMatmulDescSetAttribute(matmul_desc_,
-                                              CUBLASLT_MATMUL_DESC_EPILOGUE,
-                                              &epilogue,
-                                              sizeof(epilogue));
-      PADDLE_CUBLASLT_STATUS_CHECK(cublasLtMatmulDescSetAttribute);
-    } else if (activation_type == "relu") {
-      epilogue = CUBLASLT_EPILOGUE_RELU_BIAS;
-      status =
-          dyl::cublasLtMatmulDescSetAttribute(matmul_desc_,
-                                              CUBLASLT_MATMUL_DESC_EPILOGUE,
-                                              &epilogue,
-                                              sizeof(epilogue));
-      PADDLE_CUBLASLT_STATUS_CHECK(cublasLtMatmulDescSetAttribute);
-    }
-  } else {
-    if (activation_type == "gelu") {
-      epilogue = CUBLASLT_EPILOGUE_GELU;
-      status =
-          dyl::cublasLtMatmulDescSetAttribute(matmul_desc_,
-                                              CUBLASLT_MATMUL_DESC_EPILOGUE,
-                                              &epilogue,
-                                              sizeof(epilogue));
-      PADDLE_CUBLASLT_STATUS_CHECK(cublasLtMatmulDescSetAttribute);
-    } else if (activation_type == "relu") {
-      epilogue = CUBLASLT_EPILOGUE_RELU;
-      status =
-          dyl::cublasLtMatmulDescSetAttribute(matmul_desc_,
-                                              CUBLASLT_MATMUL_DESC_EPILOGUE,
-                                              &epilogue,
-                                              sizeof(epilogue));
-      PADDLE_CUBLASLT_STATUS_CHECK(cublasLtMatmulDescSetAttribute);
-    }
+    PADDLE_CUBLASLT_STATUS_CHECK(cublasLtMatmulDescSetAttribute);
   }
+  
 
   status = dyl::cublasLtMatrixLayoutCreate(&B_desc_, B_type, k, n, k);
   status = dyl::cublasLtMatrixLayoutCreate(&A_desc_, A_type, k, m, k);
+  status = dyl::cublasLtMatrixLayoutCreate(&Bias_desc_, Bias_type, n, m, 0);
   status = dyl::cublasLtMatrixLayoutCreate(&C_desc_, C_type, n, m, n);
   PADDLE_CUBLASLT_STATUS_CHECK(cublasLtMatrixLayoutCreate);
 
   if (batch_count > 1) {
     int64_t strideb = n * k;
     int64_t stridea = m * k;
+    int64_t stridebias = 0;
     int64_t stridec = m * n;
     status = dyl::cublasLtMatrixLayoutSetAttribute(
         B_desc_,
@@ -851,6 +831,18 @@ void CublasLtMatmulFP8(const phi::GPUContext& dev_ctx,
         sizeof(stridea));
     PADDLE_CUBLASLT_STATUS_CHECK(cublasLtMatmulDescSetAttribute);
     status = dyl::cublasLtMatrixLayoutSetAttribute(
+        Bias_desc_,
+        CUBLASLT_MATRIX_LAYOUT_BATCH_COUNT,
+        &batch_count,
+        sizeof(batch_count));
+    PADDLE_CUBLASLT_STATUS_CHECK(cublasLtMatmulDescSetAttribute);
+    status = dyl::cublasLtMatrixLayoutSetAttribute(
+        Bias_desc_,
+        CUBLASLT_MATRIX_LAYOUT_STRIDED_BATCH_OFFSET,
+        &stridebias,
+        sizeof(stridebias));
+    PADDLE_CUBLASLT_STATUS_CHECK(cublasLtMatmulDescSetAttribute);
+    status = dyl::cublasLtMatrixLayoutSetAttribute(
         C_desc_,
         CUBLASLT_MATRIX_LAYOUT_BATCH_COUNT,
         &batch_count,
@@ -873,17 +865,20 @@ void CublasLtMatmulFP8(const phi::GPUContext& dev_ctx,
       batch_count,
       mat_b.data<phi::dtype::float8_e4m3fn>(),
       mat_a.data<phi::dtype::float8_e4m3fn>(),
+      bias_ptr,
       out->data<T>(),
       &alpha_,
       &beta_,
       matmul_desc_,
       B_desc_,
       A_desc_,
+      Bias_desc_,
       C_desc_,
       CUBLAS_COMPUTE_32F,
       CUDA_R_32F,
       B_type,
       A_type,
+      Bias_type,
       C_type,
       dev_ctx.stream());
 
@@ -903,7 +898,7 @@ void CublasLtMatmulFP8(const phi::GPUContext& dev_ctx,
                                                  matmul_desc_,
                                                  B_desc_,
                                                  A_desc_,
-                                                 C_desc_,
+                                                 Bias_desc_,
                                                  C_desc_,
                                                  preference,
                                                  1,
@@ -924,7 +919,7 @@ void CublasLtMatmulFP8(const phi::GPUContext& dev_ctx,
                                         matmul_desc_,
                                         B_desc_,
                                         A_desc_,
-                                        C_desc_,
+                                        Bias_desc_,
                                         C_desc_,
                                         algo,
                                         &heurResult);
@@ -945,8 +940,8 @@ void CublasLtMatmulFP8(const phi::GPUContext& dev_ctx,
                                mat_a.data<phi::dtype::float8_e4m3fn>(),
                                A_desc_,
                                &beta_,
-                               out->data<T>(),
-                               C_desc_,
+                               bias_ptr,
+                               Bias_desc_,
                                out->data<T>(),
                                C_desc_,
                                // nullptr,
@@ -978,8 +973,6 @@ void cublaslt_fp8_fp8_fp16_gemm(
   int m = x.dims()[rank - 2];
   int n = y.dims()[rank - 1];
   int k = x.dims()[rank - 1];
-
-  LOG(INFO) << "m, n, k: " << m << ", " << n << ", " << k;
 
   PADDLE_ENFORCE_EQ(x.dims()[rank - 1],
                     y.dims()[rank - 2],
