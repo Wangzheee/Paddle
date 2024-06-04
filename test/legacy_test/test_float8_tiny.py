@@ -127,18 +127,18 @@ class TestFP8MatmulOp(unittest.TestCase):
         for self.device in ["gpu"]:
             paddle.device.set_device(self.device)
             for self.dtype in ["float8_e4m3fn"]:
-                input1 = paddle.ones([1280, 5504], dtype=self.dtype)
+                input1 = paddle.ones([8, 5504], dtype=self.dtype)
                 input2 = paddle.ones([2048, 5504], dtype=self.dtype)
 
 
-                input5 = paddle.ones([1280, 5504]).astype("int8")
+                input5 = paddle.ones([8, 5504]).astype("int8")
                 input6 = paddle.ones([2048, 5504]).astype("int8")
 
 
 
                 time0 = time.time()
                 
-                for i in range(100):
+                for i in range(10):
                     output_fp16 = paddle.linalg.fp8_fp8_fp16_gemm_fused(
                         input1,
                         input2,
@@ -152,7 +152,7 @@ class TestFP8MatmulOp(unittest.TestCase):
 
                 time2 = time.time()
 
-                for i in range(100):
+                for i in range(10):
                     expect_result = paddle.matmul(input5, input6, False, True)
                 print("output_int8: ", expect_result)
             

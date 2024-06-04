@@ -59,7 +59,7 @@ bool dispatch_dual_gemm_scale_bias_swiglu(DualGemmEpilogueAllParams params) {
 
   // This code section describes the tile size a thread block will compute
   using ShapeMMAThreadBlock =
-      cutlass::gemm::GemmShape<64, 64, 64>;  // <- threadblock tile M = 64, N
+      cutlass::gemm::GemmShape<32, 64, 64>;  // <- threadblock tile M = 64, N
                                               // = 64, K = 64
   // This code section describes tile size a warp will compute
   using ShapeMMAWarp =
@@ -93,7 +93,7 @@ bool dispatch_dual_gemm_scale_bias_swiglu(DualGemmEpilogueAllParams params) {
       ElementCompute>;
 
   // Number of pipelines you want to use
-  constexpr int NumStages = 3;
+  constexpr int NumStages = 4;
   constexpr bool StoreD0 = false;
   constexpr bool StoreD1 = false;
   constexpr bool SplitKSerial = false;

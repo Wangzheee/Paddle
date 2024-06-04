@@ -56,7 +56,7 @@ bool dispatch_gemm_scale(GemmEpilogueAllParams params) {
 
   // This code section describes the tile size a thread block will compute
   using ShapeMMAThreadBlock =
-      cutlass::gemm::GemmShape<64, 64, 64>;  // <- threadblock tile M = 128, N
+      cutlass::gemm::GemmShape<32, 128, 64>;  // <- threadblock tile M = 128, N
                                                // = 256, K = 64
   // This code section describes tile size a warp will compute
   using ShapeMMAWarp =

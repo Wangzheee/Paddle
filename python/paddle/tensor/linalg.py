@@ -519,12 +519,9 @@ def fp8_fp8_fp8_dual_gemm_fused(
 
         helper = LayerHelper('fp8_fp8_fp8_dual_gemm_fused', **locals())
         out = helper.create_variable_for_type_inference(dtype='float8_e4m3fn')
-        print("x: ", x)
-        print("y0: ", y0)
-        print("y1: ", y1)
         helper.append_op(
             type='fp8_fp8_fp8_dual_gemm_fused',
-            inputs={'x': x, 'y0': y0, 'y1': y1},
+            inputs={'x': x, 'y0': y0, 'y1': y1, 'bias0': bias0, 'bias1': bias1},
             outputs={'out': out},
             attrs=attrs,
         )
