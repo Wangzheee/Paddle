@@ -173,18 +173,11 @@ bool dispatch_dual_gemm_scale_bias_geglu(DualGemmEpilogueAllParams params) {
   phi::Allocator* allocator = paddle::GetAllocator(params.place);
   auto workspace = allocator->Allocate(workspace_size);
 
-  status = gemm_op.initialize(arguments, workspace->ptr(), params.stream);
-
-  if (status != cutlass::Status::kSuccess) {
-    std::cerr << "Gemm::initialize() failed" << std::endl;
-    return false;
-  }
-
   //
   // Run the GEMM
   //
 
-  status = gemm_op();
+  status = gemm_op(arguments, workspace->ptr(), params.stream);
   if (status != cutlass::Status::kSuccess) {
     std::cerr << "Gemm::run() failed" << std::endl;
     return false;

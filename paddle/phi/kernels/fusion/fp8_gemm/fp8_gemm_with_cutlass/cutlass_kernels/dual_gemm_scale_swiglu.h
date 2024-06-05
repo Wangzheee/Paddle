@@ -173,26 +173,13 @@ bool dispatch_dual_gemm_scale_swiglu(DualGemmEpilogueAllParams params) {
   phi::Allocator* allocator = paddle::GetAllocator(params.place);
   auto workspace = allocator->Allocate(workspace_size);
 
-  status = gemm_op.initialize(arguments, workspace->ptr(), params.stream);
-
-  if (status != cutlass::Status::kSuccess) {
-    std::cerr << "Gemm::initialize() failed" << std::endl;
-    return false;
-  }
-
   //
   // Run the GEMM
   //
 
-  status = gemm_op();
+  status = gemm_op(arguments, workspace->ptr(), params.stream);
   if (status != cutlass::Status::kSuccess) {
     std::cerr << "Gemm::run() failed" << std::endl;
-    return false;
-  }
-
-  cudaError_t cuda_error = cudaDeviceSynchronize();
-  if (cuda_error != cudaSuccess) {
-    std::cerr << "CUDA error: " << cudaGetErrorString(cuda_error) << std::endl;
     return false;
   }
   return true;
