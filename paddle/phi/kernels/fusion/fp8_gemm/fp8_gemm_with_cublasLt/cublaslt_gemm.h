@@ -971,24 +971,21 @@ void cublaslt_fp8_fp8_fp16_gemm(
                     "x_dims.size needs to equal to y_dims.size");
 
   int rank = x.dims().size();
-  int m = x.dims()[rank - 2];
-  int n = y.dims()[rank - 1];
-  int k = x.dims()[rank - 1];
+  int m = transpose_x? x.dims()[rank - 1]: x.dims()[rank - 2];
+  int n = transpose_y? y.dims()[rank - 2]: y.dims()[rank - 1];
+  int k = transpose_x? x.dims()[rank - 2]: x.dims()[rank - 1];
 
-  PADDLE_ENFORCE_EQ(x.dims()[rank - 1],
-                    y.dims()[rank - 2],
-                    "x_dims[rank-1] needs to equal to y_dims[rank-2]");
+  int y_k = transpose_y? y.dims()[rank - 1]: y.dims()[rank - 2];
+  PADDLE_ENFORCE_EQ(k, y_k, "x_k needs to equal to y_k");
 
   if (bias) {
     PADDLE_ENFORCE_EQ(bias->dims()[0],
-                      y.dims()[rank - 1],
-                      "bias_vecotr_dim needs to equal to y_dims[rank-1]");
+                      n,
+                      "bias_vecotr_dim needs to equal to n");
   }
 
   PADDLE_ENFORCE_EQ(
-      x.dims()[rank - 1] % 16, 0, "fp8 matmul need x_dims[rank-1] % 16 = 0.");
-  PADDLE_ENFORCE_EQ(
-      y.dims()[rank - 2] % 16, 0, "fp8 matmul need y_dims[rank-2] % 16 = 0.");
+      k % 16, 0, "fp8 matmul need k % 16 = 0.");
 
   ctx.template Alloc<phi::dtype::float16>(out);
   int batch_count = 1;
@@ -1015,24 +1012,21 @@ void cublaslt_fp8_fp8_bf16_gemm(
                     "x_dims.size needs to equal to y_dims.size");
 
   int rank = x.dims().size();
-  int m = x.dims()[rank - 2];
-  int n = y.dims()[rank - 1];
-  int k = x.dims()[rank - 1];
+  int m = transpose_x? x.dims()[rank - 1]: x.dims()[rank - 2];
+  int n = transpose_y? y.dims()[rank - 2]: y.dims()[rank - 1];
+  int k = transpose_x? x.dims()[rank - 2]: x.dims()[rank - 1];
 
-  PADDLE_ENFORCE_EQ(x.dims()[rank - 1],
-                    y.dims()[rank - 2],
-                    "x_dims[rank-1] needs to equal to y_dims[rank-2]");
+  int y_k = transpose_y? y.dims()[rank - 1]: y.dims()[rank - 2];
+  PADDLE_ENFORCE_EQ(k, y_k, "x_k needs to equal to y_k");
 
   if (bias) {
     PADDLE_ENFORCE_EQ(bias->dims()[0],
-                      y.dims()[rank - 1],
-                      "bias_vecotr_dim needs to equal to y_dims[rank-1]");
+                      n,
+                      "bias_vecotr_dim needs to equal to n");
   }
 
   PADDLE_ENFORCE_EQ(
-      x.dims()[rank - 1] % 16, 0, "fp8 matmul need x_dims[rank-1] % 16 = 0.");
-  PADDLE_ENFORCE_EQ(
-      y.dims()[rank - 2] % 16, 0, "fp8 matmul need y_dims[rank-2] % 16 = 0.");
+      k % 16, 0, "fp8 matmul need k % 16 = 0.");
 
   ctx.template Alloc<phi::dtype::bfloat16>(out);
   int batch_count = 1;
