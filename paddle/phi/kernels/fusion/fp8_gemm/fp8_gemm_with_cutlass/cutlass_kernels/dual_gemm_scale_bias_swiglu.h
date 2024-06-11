@@ -24,7 +24,7 @@ namespace phi {
 namespace fusion {
 namespace cutlass_internal {
 
-template <typename InputType, typename OutType>
+template <typename InputType, typename BiasType, typename OutType>
 bool dispatch_dual_gemm_scale_bias_swiglu(DualGemmEpilogueAllParams params) {
   using ElementInputA = typename std::conditional_t<
       std::is_same_v<InputType, phi::dtype::float8_e4m3fn>,
@@ -34,7 +34,10 @@ bool dispatch_dual_gemm_scale_bias_swiglu(DualGemmEpilogueAllParams params) {
       std::is_same_v<InputType, phi::dtype::float8_e4m3fn>,
       cutlass::float_e4m3_t,
       cutlass::float_e5m2_t>;
-  using ElementInputC = cutlass::half_t;
+  using ElementInputC = 
+      typename std::conditional_t<std::is_same_v<BiasType, phi::dtype::bfloat16>,
+                                  cutlass::bfloat16_t,
+                                  cutlass::half_t>;
   using ElementOutput = typename std::conditional_t<
       std::is_same_v<OutType, phi::dtype::float8_e4m3fn>,
       cutlass::float_e4m3_t,
