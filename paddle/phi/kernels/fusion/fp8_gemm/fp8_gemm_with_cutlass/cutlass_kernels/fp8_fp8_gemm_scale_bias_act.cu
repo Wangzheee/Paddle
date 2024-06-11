@@ -13,13 +13,13 @@
 // limitations under the License.
 #include <map>
 
-#include "fp8_fp8_gemm_scale_bias_act.h"
+#include "fp8_fp8_gemm_scale_bias_act.h" // NOLINT
 
-#include "gemm_scale.h"
-#include "gemm_scale_bias.h"
-#include "gemm_scale_bias_gelu.h"
-#include "gemm_scale_bias_relu.h"
-#include "gemm_scale_gelu.h"
+#include "gemm_scale.h" // NOLINT
+#include "gemm_scale_bias.h" // NOLINT
+#include "gemm_scale_bias_gelu.h" // NOLINT
+#include "gemm_scale_bias_relu.h" // NOLINT
+#include "gemm_scale_gelu.h" // NOLINT
 
 namespace phi {
 namespace fusion {

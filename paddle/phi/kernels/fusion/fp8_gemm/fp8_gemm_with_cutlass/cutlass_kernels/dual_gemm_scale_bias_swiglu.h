@@ -34,8 +34,9 @@ bool dispatch_dual_gemm_scale_bias_swiglu(DualGemmEpilogueAllParams params) {
       std::is_same_v<InputType, phi::dtype::float8_e4m3fn>,
       cutlass::float_e4m3_t,
       cutlass::float_e5m2_t>;
-  using ElementInputC = 
-      typename std::conditional_t<std::is_same_v<BiasType, phi::dtype::bfloat16>,
+  using ElementInputC =
+      typename std::conditional_t<
+      std::is_same_v<BiasType, phi::dtype::bfloat16>,
                                   cutlass::bfloat16_t,
                                   cutlass::half_t>;
   using ElementOutput = typename std::conditional_t<
@@ -179,7 +180,6 @@ bool dispatch_dual_gemm_scale_bias_swiglu(DualGemmEpilogueAllParams params) {
   //
   // Run the GEMM
   //
-
   status = gemm_op(arguments, workspace->ptr(), params.stream);
   if (status != cutlass::Status::kSuccess) {
     std::cerr << "Gemm::run() failed" << std::endl;

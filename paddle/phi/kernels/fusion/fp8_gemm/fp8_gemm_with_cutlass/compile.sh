@@ -24,6 +24,7 @@ if [ ! -d "$build_directory" ]; then
     mkdir $build_directory
 fi
 
+# set environment variables
 python_exe_path="/usr/bin/python"
 cuda_root_path="/usr/local/cuda"
 gpu_cc="89"

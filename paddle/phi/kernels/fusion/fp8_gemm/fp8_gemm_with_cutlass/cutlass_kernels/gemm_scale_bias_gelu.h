@@ -12,7 +12,7 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-#include "fp8_fp8_gemm_scale_bias_act.h"
+#include "fp8_fp8_gemm_scale_bias_act.h" // NOLINT
 
 #include "cutlass/cutlass.h"
 #include "cutlass/float8.h"
@@ -104,7 +104,7 @@ bool dispatch_gemm_scale_bias_gelu(GemmEpilogueAllParams params) {
                                            NumStages,
                                            kAlignmentA,
                                            kAlignmentB,
-                                           cutlass::arch::OpMultiplyAddFastAccum>;
+                                           cutlass::arch::OpMultiplyAddFastAccum>; // NOLINT
 
   cutlass::gemm::GemmCoord problem_size =
       cutlass::gemm::GemmCoord{params.M, params.N, params.K};
@@ -155,7 +155,6 @@ bool dispatch_gemm_scale_bias_gelu(GemmEpilogueAllParams params) {
   //
   // Run the GEMM
   //
-
   status = gemm_op(arguments, workspace->ptr(), params.stream);
   if (status != cutlass::Status::kSuccess) {
     std::cerr << "Gemm::run() failed" << std::endl;

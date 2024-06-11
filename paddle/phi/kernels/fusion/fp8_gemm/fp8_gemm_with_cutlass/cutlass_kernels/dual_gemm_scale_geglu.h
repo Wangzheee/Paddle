@@ -176,7 +176,6 @@ bool dispatch_dual_gemm_scale_geglu(DualGemmEpilogueAllParams params) {
   //
   // Run the GEMM
   //
-
   status = gemm_op(arguments, workspace->ptr(), params.stream);
   if (status != cutlass::Status::kSuccess) {
     std::cerr << "Gemm::run() failed" << std::endl;

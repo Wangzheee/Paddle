@@ -7,14 +7,15 @@ if(NOT DEFINED COMPUTE_CAPABILITY)
   )
 endif()
 
-set(PADDLE_LIB ${CMAKE_CURRENT_SOURCE_DIR}/../../../../../../../build/paddle_inference_install_dir)
+set(PADDLE_LIB
+    ${CMAKE_CURRENT_SOURCE_DIR}/../../../../../../../build/paddle_inference_install_dir
+)
 
 add_definitions("-DPADDLE_WITH_CUDA")
 include_directories(
   "${CMAKE_CURRENT_SOURCE_DIR}/../../../../../../../build/paddle_inference_install_dir/paddle/include"
 )
 include_directories("${CMAKE_CURRENT_SOURCE_DIR}/../../../../../../../")
-# include_directories("${CMAKE_CURRENT_SOURCE_DIR}/..")
 include_directories("${CMAKE_CURRENT_SOURCE_DIR}/cutlass/include")
 
 link_directories("${PADDLE_LIB}/paddle/lib")

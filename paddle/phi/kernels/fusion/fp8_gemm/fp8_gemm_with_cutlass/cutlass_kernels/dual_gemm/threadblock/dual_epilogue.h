@@ -52,7 +52,7 @@
 #include "cutlass/functional.h"
 #include "cutlass/layout/tensor.h"
 #include "cutlass/layout/vector.h"
-#include "cutlass/numeric_types.h"  // NOLINT
+#include "cutlass/numeric_types.h"   // NOLINT
 #include "cutlass/tensor_coord.h"
 
 #include "cutlass/gemm/gemm.h"
@@ -62,43 +62,39 @@
 
 #include "cutlass/epilogue/threadblock/epilogue_base.h"
 #include "cutlass/epilogue/threadblock/predicated_tile_iterator.h"
-#include "cutlass/numeric_types.h"  // NOLINT
-
-////////////////////////////////////////////////////////////////////////////////
+#include "cutlass/numeric_types.h"   // NOLINT
 
 namespace cutlass {
 namespace epilogue {
 namespace threadblock {
 
-////////////////////////////////////////////////////////////////////////////////
-
-/// Epilogue operator
-template <typename Shape_,  ///< Shape of threadblock tile (concept: GemmShape)
-          typename WarpMmaOperator_,  ///< Warp-level MMA operator (concept:
-                                      ///< gemm::warp::MmaTensorOp)
-          int PartitionsK,  ///< Number of partitions of the K dimension
-          typename OutputTileIterator_,  ///< Tile iterator reading and writing
-                                         ///< output tensors
-          typename OutputTileIterator2_, ///< Tile iterator reading and writing
-                                         ///< output tensors
-          typename AccumulatorFragmentIterator_,  ///< Fragment iterator
-                                                  ///< selecting accumulators
-          typename WarpTileIterator_,    ///< Warp-scoped tile iterator writing
-                                         ///< accumulators to SMEM
-          typename SharedLoadIterator_,  ///< Threadblock-scoped tile iterator
-                                         ///< loading from SMEM
-          ///< Output operator
+// Epilogue operator
+template <typename Shape_,   // Shape of threadblock tile (concept: GemmShape)
+          typename WarpMmaOperator_,   // Warp-level MMA operator (concept:
+                                       // gemm::warp::MmaTensorOp)
+          int PartitionsK,   // Number of partitions of the K dimension
+          typename OutputTileIterator_,   // Tile iterator reading and writing
+                                          // output tensors
+          typename OutputTileIterator2_,  // Tile iterator reading and writing
+                                          // output tensors
+          typename AccumulatorFragmentIterator_,   // Fragment iterator
+                                                   // selecting accumulators
+          typename WarpTileIterator_,     // Warp-scoped tile iterator writing
+                                          // accumulators to SMEM
+          typename SharedLoadIterator_,   // Threadblock-scoped tile iterator
+                                          // loading from SMEM
+           // Output operator
           typename OutputOp0_,
           typename OutputOp1_,
           typename OutputOp2_,
-          typename Padding_,  ///< Padding added to SMEM allocation to avoid
-                              ///< bank conflicts (concept: MatrixShape)
+          typename Padding_,   // Padding added to SMEM allocation to avoid
+                               // bank conflicts (concept: MatrixShape)
           bool StoreD0 = true,
           bool StoreD1 = true,
           int FragmentsPerPartition =
-              1,                  ///< Used to coarsten the epilogue granularity
-          int IterationsUnroll =  ///< Used to reduce binary size when epilogue
-                                  ///< op is large
+              1,                   // Used to coarsten the epilogue granularity
+          int IterationsUnroll =   // Used to reduce binary size when epilogue
+                                   // op is large
           (!IsEpilogueFunctorHeavy<OutputOp0_>::value)>
 class DualEpilogue {
  public:
@@ -128,67 +124,67 @@ class DualEpilogue {
   using Layout = layout::RowMajor;
   using LongIndex = typename Layout::LongIndex;
 
-  /// The complete warp-level accumulator tile
+  // The complete warp-level accumulator tile
   using AccumulatorTile = typename Base::AccumulatorTile;
 
-  /// Accumulator element
+  // Accumulator element
   using ElementAccumulator = typename WarpTileIterator::Element;
 
-  /// Output element
+  // Output element
   using ElementOutput = typename OutputTileIterator::Element;
 
-  /// Output access size
+  // Output access size
   static int const kElementsPerAccess = OutputTileIterator::kElementsPerAccess;
 
-  /// Tensor reference to destination tensor
+  // Tensor reference to destination tensor
   using TensorRef = typename OutputTileIterator::TensorRef;
 
-  /// Tensor reference to sync tensor
+  // Tensor reference to sync tensor
   using SyncTensorRef =
       typename cutlass::TensorRef<int, cutlass::layout::PackedVectorLayout>;
 
-  /// Const tensor reference to source tensor
+  // Const tensor reference to source tensor
   using ConstTensorRef = typename OutputTileIterator::ConstTensorRef;
 
-  /// Array type used to output
+  // Array type used to output
   using OutputAccessType = Array<typename OutputTileIterator::Element,
                                  OutputTileIterator::kElementsPerAccess>;
-  
-  /// Array type used to output
-  using OutputAccessType2 = Array<typename OutputTileIterator2::Element, 
+
+  // Array type used to output
+  using OutputAccessType2 = Array<typename OutputTileIterator2::Element,
                                   OutputTileIterator2::kElementsPerAccess>;
 
 
-  /// Array type used by output functor
+  // Array type used by output functor
   using AccumulatorAccessType = Array<typename WarpTileIterator::Element,
                                       OutputTileIterator::kElementsPerAccess>;
 
-  /// Number of warps
+  // Number of warps
   using WarpCount = typename Base::WarpCount;
 
   struct SharedStorage {
     using Element = typename WarpTileIterator::Element;
 
-    /// Tensor reference to shared memory allocation
+    // Tensor reference to shared memory allocation
     using TensorRef = typename WarpTileIterator::TensorRef;
 
-    /// Logical shape of the shared memory tile written to by all warps.
+    // Logical shape of the shared memory tile written to by all warps.
     using Shape = typename Base::Shape;
 
-    /// Shape of the shared memory allocation for the epilogue
+    // Shape of the shared memory allocation for the epilogue
     using StorageShape = typename Base::SharedStorage::StorageShape;
 
-    //
-    // Data members
-    //
+     //
+     // Data members
+     //
 
     AlignedBuffer<Element, StorageShape::kCount> storage[2];
 
-    //
-    // Methods
-    //
+     //
+     // Methods
+     //
 
-    /// Returns a tensor reference to the shared memory buffer
+    // Returns a tensor reference to the shared memory buffer
     CUTLASS_DEVICE
     TensorRef reference(int i) {
       return TensorRef(
@@ -217,22 +213,22 @@ class DualEpilogue {
                 "Divisibility");
 
  private:
-  /// Loads fragment from shared memory aligned with output tensor
+  // Loads fragment from shared memory aligned with output tensor
   SharedLoadIterator shared_load_iterator0_;
   SharedLoadIterator shared_load_iterator1_;
 
-  /// Stores a warp's fragment of accumulators to SMEM
+  // Stores a warp's fragment of accumulators to SMEM
   WarpTileIterator warp_tile_iterator0_;
   WarpTileIterator warp_tile_iterator1_;
 
  public:
-  /// Constructor
+  // Constructor
   CUTLASS_DEVICE
   DualEpilogue(
-      SharedStorage &shared_storage,  ///< Shared storage object // NOLINT
-      int thread_idx,                 ///< ID of a thread within the threadblock
-      int warp_idx,                   ///< ID of warp within threadblock
-      int lane_idx                    ///< Id of thread within warp
+      SharedStorage &shared_storage,   // Shared storage object  // NOLINT
+      int thread_idx,                  // ID of a thread within the threadblock
+      int warp_idx,                    // ID of warp within threadblock
+      int lane_idx                     // Id of thread within warp
       )
       : shared_load_iterator0_(shared_storage.reference(0), thread_idx),
         shared_load_iterator1_(shared_storage.reference(1), thread_idx),
@@ -249,7 +245,7 @@ class DualEpilogue {
     warp_tile_iterator1_.add_tile_offset(warp_offset);
   }
 
-  /// Streams the result to global memory
+  // Streams the result to global memory
   CUTLASS_DEVICE
   void operator()(OutputOp0 const &output_op0,
                   OutputOp1 const &output_op1,
@@ -260,10 +256,9 @@ class DualEpilogue {
                   AccumulatorTile const &accumulator0,
                   AccumulatorTile const &accumulator1,
                   OutputTileIterator source_iterator[2],
-                  bool writeToD2  // true if it's the final split-k
+                  bool writeToD2   // true if it's the final split-k
   ) {
-    // TODO: Implement when no source is needed // NOLINT
-
+    // TODO: Implement when no source is needed  // NOLINT
     typename OutputTileIterator::Fragment source_fragment[2];
     CUTLASS_PRAGMA_UNROLL
     for (int i = 0; i < 2; ++i) {
@@ -392,7 +387,7 @@ class DualEpilogue {
     template <int Advance>
     CUTLASS_DEVICE static void helper(
         AccumulatorFragmentIterator accum_fragment_iterator,
-        WarpTileIterator &warp_tile_iterator) {  // NOLINT
+        WarpTileIterator &warp_tile_iterator) {   // NOLINT
       CUTLASS_PRAGMA_UNROLL
       for (int i = 0; i < Advance; i++) {
         ++accum_fragment_iterator;
@@ -406,17 +401,17 @@ class DualEpilogue {
     CUTLASS_DEVICE
     static void push(size_t pos,
                      AccumulatorFragmentIterator const &iterator_begin,
-                     WarpTileIterator &warp_tile_iterator) {  // NOLINT
+                     WarpTileIterator &warp_tile_iterator) {   // NOLINT
       int dummy[] = {(pos == Seq) &&
                      (helper<Seq>(iterator_begin, warp_tile_iterator), 0)...};
     }
   };
 
-  /// Helper to invoke the output functor over each vector of output
+  // Helper to invoke the output functor over each vector of output
   CUTLASS_DEVICE
   void apply_output_operator_(
       typename OutputTileIterator::Fragment (&output_fragment)[2],
-      typename OutputTileIterator2::Fragment &output_fragment_final,
+      typename OutputTileIterator2::Fragment &output_fragment_final, // NOLINT
       OutputOp0 const &output_op0,
       OutputOp1 const &output_op1,
       OutputOp2 const &output_op2,
@@ -427,7 +422,8 @@ class DualEpilogue {
         reinterpret_cast<OutputAccessType *>(&output_fragment[0]),
         reinterpret_cast<OutputAccessType *>(&output_fragment[1])};
 
-    OutputAccessType2* output_frag_final_ptr = reinterpret_cast<OutputAccessType2 *>(&output_fragment_final);
+    OutputAccessType2* output_frag_final_ptr =
+        reinterpret_cast<OutputAccessType2 *>(&output_fragment_final);
 
     AccumulatorAccessType const *compute_frag_ptr[2] = {
         reinterpret_cast<AccumulatorAccessType const *>(
@@ -449,16 +445,12 @@ class DualEpilogue {
           output_op0(compute_frag_ptr[0][i], source_frag_ptr[0][i]);
       output_frag_ptr[1][i] =
           output_op1(compute_frag_ptr[1][i], source_frag_ptr[1][i]);
-      output_frag_final_ptr[i] = 
+      output_frag_final_ptr[i] =
           output_op2(output_frag_ptr[0][i], output_frag_ptr[1][i]);
     }
   }
 };
 
-////////////////////////////////////////////////////////////////////////////////
-
-}  // namespace threadblock
-}  // namespace epilogue
-}  // namespace cutlass
-
-////////////////////////////////////////////////////////////////////////////////
+}   // namespace threadblock
+}   // namespace epilogue
+}   // namespace cutlass
