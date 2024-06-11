@@ -25,9 +25,11 @@ namespace cutlass_internal {
 
 std::map<std::string, int> config_map1{
     {"e4m3_e4m3_swiglu", 0},
-    {"e4m3_e4m3_bias0_bias1_swiglu", 1},
-    {"e4m3_e4m3_geglu", 2},
-    {"e4m3_e4m3_bias0_bias1_geglu", 3},
+    {"e4m3_e4m3_bias_fp16_swiglu", 1},
+    {"e4m3_e4m3_bias_bf16_swiglu", 2},
+    {"e4m3_e4m3_geglu", 3},
+    {"e4m3_e4m3_bias_fp16_geglu", 4},
+    {"e4m3_e4m3_bias_bf16_geglu", 5},
 };
 
 bool fp8_fp8_dual_gemm_scale_bias_act(DualGemmEpilogueAllParams params) {
@@ -38,14 +40,26 @@ bool fp8_fp8_dual_gemm_scale_bias_act(DualGemmEpilogueAllParams params) {
       break;
     case 1:
       dispatch_dual_gemm_scale_bias_swiglu<phi::dtype::float8_e4m3fn,
+                                           phi::dtype::float16,
                                            phi::dtype::float8_e4m3fn>(params);
       break;
     case 2:
+      dispatch_dual_gemm_scale_bias_swiglu<phi::dtype::float8_e4m3fn,
+                                           phi::dtype::bfloat16,
+                                           phi::dtype::float8_e4m3fn>(params);
+      break;
+    case 3:
       dispatch_dual_gemm_scale_geglu<phi::dtype::float8_e4m3fn,
                                      phi::dtype::float8_e4m3fn>(params);
       break;
-    case 3:
+    case 4:
       dispatch_dual_gemm_scale_bias_geglu<phi::dtype::float8_e4m3fn,
+                                          phi::dtype::float16,
+                                          phi::dtype::float8_e4m3fn>(params);
+      break;
+    case 5:
+      dispatch_dual_gemm_scale_bias_geglu<phi::dtype::float8_e4m3fn,
+                                          phi::dtype::bfloat16,
                                           phi::dtype::float8_e4m3fn>(params);
       break;
     default:
