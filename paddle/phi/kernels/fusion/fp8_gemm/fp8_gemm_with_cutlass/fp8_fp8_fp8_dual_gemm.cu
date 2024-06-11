@@ -15,7 +15,7 @@
 #include <iostream>
 
 #include "./cutlass_kernels/fp8_fp8_dual_gemm_scale_bias_act.h"
-#include "fp8_common.h" // NOLINT
+#include "fp8_common.h"  // NOLINT
 
 #include "paddle/phi/backends/dynload/fp8_gemm_fused.h"
 #include "paddle/phi/backends/gpu/gpu_context.h"
@@ -97,22 +97,22 @@ void fp8_fp8_fp8_dual_gemm(
   void* bias_data1 = nullptr;
   std::vector<int64_t> bias_dims0{};
   std::vector<int64_t> bias_dims1{};
-  if(bias0 && bias1) {
+  if (bias0 && bias1) {
     isbias = "bias_";
     bias_dims0 = common::vectorize(bias0.get().dims());
     bias_dims1 = common::vectorize(bias1.get().dims());
-    if(bias0.get().dtype() == phi::DataType::FLOAT16) {
+    if (bias0.get().dtype() == phi::DataType::FLOAT16) {
       bias_dtype = "bf16_";
-      bias_data0 = reinterpret_cast<void*>(const_cast<
-      phi::dtype::bfloat16*>(bias0.get().data<phi::dtype::bfloat16>()));
-      bias_data1 = reinterpret_cast<void*>(const_cast<
-      phi::dtype::bfloat16*>(bias1.get().data<phi::dtype::bfloat16>()));
+      bias_data0 = reinterpret_cast<void*>(const_cast<phi::dtype::bfloat16*>(
+          bias0.get().data<phi::dtype::bfloat16>()));
+      bias_data1 = reinterpret_cast<void*>(const_cast<phi::dtype::bfloat16*>(
+          bias1.get().data<phi::dtype::bfloat16>()));
     } else {
       bias_dtype = "bf16_";
-      bias_data0 = reinterpret_cast<void*>(const_cast<
-      phi::dtype::bfloat16*>(bias0.get().data<phi::dtype::bfloat16>()));
-      bias_data1 = reinterpret_cast<void*>(const_cast<
-      phi::dtype::bfloat16*>(bias1.get().data<phi::dtype::bfloat16>()));
+      bias_data0 = reinterpret_cast<void*>(const_cast<phi::dtype::bfloat16*>(
+          bias0.get().data<phi::dtype::bfloat16>()));
+      bias_data1 = reinterpret_cast<void*>(const_cast<phi::dtype::bfloat16*>(
+          bias1.get().data<phi::dtype::bfloat16>()));
     }
   }
   std::string act = (activation_type == "") ? "swiglu" : activation_type;
