@@ -583,7 +583,7 @@ class CublasLtAlgoCache {
     infile.close();
   }
 
-  std::string config_filename_{"/tmp/paddle_cublaslt_cache"};
+  std::string config_filename_{"./paddle_cublaslt_cache"};
   std::unordered_map<int64_t, cublasLtMatmulAlgo_t> map_;
   int search_times_;
   const int requested_algo_count_ = 100;
@@ -606,7 +606,7 @@ class CublasLtAlgoCache {
     size_t size_to_write;
     int trans_a, trans_b;
     uint32_t epilogue;
-    int8_t fast_accum;
+    // int8_t fast_accum;
 
     PADDLE_ENFORCE_GPU_SUCCESS(
         dyl::cublasLtMatmulDescGetAttribute(desc,
@@ -632,13 +632,13 @@ class CublasLtAlgoCache {
                                             &size_to_write));
     HashValue_(seed, hash_fn, static_cast<int64_t>(epilogue));
 
-    PADDLE_ENFORCE_GPU_SUCCESS(
-        dyl::cublasLtMatmulDescGetAttribute(desc,
-                                            CUBLASLT_MATMUL_DESC_FAST_ACCUM,
-                                            &fast_accum,
-                                            sizeof(fast_accum),
-                                            &size_to_write));
-    HashValue_(seed, hash_fn, static_cast<int64_t>(fast_accum));
+    // PADDLE_ENFORCE_GPU_SUCCESS(
+    //     dyl::cublasLtMatmulDescGetAttribute(desc,
+    //                                         CUBLASLT_MATMUL_DESC_FAST_ACCUM,
+    //                                         &fast_accum,
+    //                                         sizeof(fast_accum),
+    //                                         &size_to_write));
+    // HashValue_(seed, hash_fn, static_cast<int64_t>(fast_accum));
   }
 
   void HashMatrixLayoutDesc_(cublasLtMatrixLayout_t desc,
@@ -763,12 +763,12 @@ void CublasLtMatmulFP8(const phi::GPUContext& dev_ctx,
                                                sizeof(op_transpose));
   PADDLE_CUBLASLT_STATUS_CHECK(cublasLtMatmulDescSetAttribute);
 
-  int8_t fast_accum = 1;
-  status = dyl::cublasLtMatmulDescSetAttribute(matmul_desc_,
-                                               CUBLASLT_MATMUL_DESC_FAST_ACCUM,
-                                               &fast_accum,
-                                               sizeof(fast_accum));
-  PADDLE_CUBLASLT_STATUS_CHECK(cublasLtMatmulDescSetAttribute);
+  // int8_t fast_accum = 1;
+  // status = dyl::cublasLtMatmulDescSetAttribute(matmul_desc_,
+  //                                              CUBLASLT_MATMUL_DESC_FAST_ACCUM,
+  //                                              &fast_accum,
+  //                                              sizeof(fast_accum));
+  // PADDLE_CUBLASLT_STATUS_CHECK(cublasLtMatmulDescSetAttribute);
 
   cublasLtEpilogue_t epilogue;
   const T* bias_ptr = nullptr;
