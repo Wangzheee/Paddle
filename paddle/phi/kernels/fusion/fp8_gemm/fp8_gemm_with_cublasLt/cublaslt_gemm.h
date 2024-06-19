@@ -72,7 +72,7 @@ inline bool compare_algo_time(const CublasLtAlgoSelectorParam& param_a,
   return (param_a.time < param_b.time);
 }
 
-#if CUDA_VERSION >= 11020
+#if CUDA_VERSION >= 11800
 class CublasLtAlgoCache {
  public:
   static CublasLtAlgoCache& Instance() {
@@ -853,7 +853,7 @@ void CublasLtMatmulFP8(const phi::GPUContext& dev_ctx,
     PADDLE_CUBLASLT_STATUS_CHECK(cublasLtMatmulDescSetAttribute);
   }
 
-#if CUDA_VERSION >= 11020
+#if CUDA_VERSION >= 11800
   cublasLtMatmulAlgo_t* algo = CublasLtAlgoCache::Instance().CublasLtAlgoSelect(
       dev_ctx.cublaslt_handle(),
       m,
@@ -918,7 +918,7 @@ void CublasLtMatmulFP8(const phi::GPUContext& dev_ctx,
                                         A_desc_,
                                         Bias_desc_,
                                         C_desc_,
-#if CUDA_VERSION >= 11020
+#if CUDA_VERSION >= 11800
                                         algo,
 #else
                                         nullptr,
