@@ -72,7 +72,6 @@ inline bool compare_algo_time(const CublasLtAlgoSelectorParam& param_a,
   return (param_a.time < param_b.time);
 }
 
-#if CUDA_VERSION >= 11800
 class CublasLtAlgoCache {
  public:
   static CublasLtAlgoCache& Instance() {
@@ -525,8 +524,8 @@ class CublasLtAlgoCache {
     return &algo_in_map;
   }
 
-  ~CublasLtAlgoCache() {
-    // Serialize map_ to cache file
+  // Serialize map_ to cache file
+  void serialize_algo_cache_file() {
     if (search_times_ > 0) {
       int dev;
       cudaGetDevice(&dev);
@@ -546,6 +545,7 @@ class CublasLtAlgoCache {
       }
     }
   }
+  ~CublasLtAlgoCache() { serialize_algo_cache_file() }
 
  private:
   explicit CublasLtAlgoCache(int search_times)
@@ -707,7 +707,6 @@ class CublasLtAlgoCache {
     *seed ^= hash_fn(value) + 0x9e3779b9 + (*seed << 6) + (*seed >> 2);
   }
 };
-#endif
 
 template <typename T>
 inline cudaDataType_t GetCublasLtDataType() {
@@ -853,7 +852,6 @@ void CublasLtMatmulFP8(const phi::GPUContext& dev_ctx,
     PADDLE_CUBLASLT_STATUS_CHECK(cublasLtMatmulDescSetAttribute);
   }
 
-#if CUDA_VERSION >= 11800
   cublasLtMatmulAlgo_t* algo = CublasLtAlgoCache::Instance().CublasLtAlgoSelect(
       dev_ctx.cublaslt_handle(),
       m,
@@ -909,8 +907,6 @@ void CublasLtMatmulFP8(const phi::GPUContext& dev_ctx,
     algo = &heuristicResult.algo;
   }
 
-#endif
-
   cublasLtMatmulHeuristicResult_t heurResult;
   status = dyl::cublasLtMatmulAlgoCheck(dev_ctx.cublaslt_handle(),
                                         matmul_desc_,
@@ -918,11 +914,7 @@ void CublasLtMatmulFP8(const phi::GPUContext& dev_ctx,
                                         A_desc_,
                                         Bias_desc_,
                                         C_desc_,
-#if CUDA_VERSION >= 11800
                                         algo,
-#else
-                                        nullptr,
-#endif
                                         &heurResult);
   PADDLE_ENFORCE_EQ(
       status,
