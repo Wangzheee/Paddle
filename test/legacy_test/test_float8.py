@@ -38,9 +38,25 @@ def get_cuda_version():
         return -1
 
 
+def check_fp8_support() -> bool:
+    """Return if fp8 support is available"""
+    gpu_arch = (
+        paddle.device.cuda.get_device_capability()[0] * 10
+        + paddle.device.cuda.get_device_capability()[1]
+    )
+    if gpu_arch >= 90:  # hopper and above
+        return True
+    # Device compute capability 8.9 or higher required for FP8 execution.
+    if gpu_arch < 89:  # pre-ada
+        return False
+    if get_cuda_version() < 12010:
+        return False
+    return True
+
+
 @unittest.skipIf(
-    not core.is_compiled_with_cuda() or get_cuda_version() < 11800,
-    "fp8 support in CUDA need CUDA version >= 11.8.",
+    not core.is_compiled_with_cuda() or not check_fp8_support(),
+    "Fp8 matmul requires CUDA >= 12.1 on Ada arch or hopper arch",
 )
 class TestFP8CastOp(unittest.TestCase):
     def setUp(self):
@@ -74,8 +90,8 @@ class TestFP8CastOp(unittest.TestCase):
 
 
 @unittest.skipIf(
-    not core.is_compiled_with_cuda() or get_cuda_version() < 11800,
-    "fp8 support in CUDA need CUDA version >= 11.8.",
+    not core.is_compiled_with_cuda() or not check_fp8_support(),
+    "Fp8 matmul requires CUDA >= 12.1 on Ada arch or hopper arch",
 )
 class TestFP8FullOp(unittest.TestCase):
     def setUp(self):
@@ -110,8 +126,8 @@ class TestFP8FullOp(unittest.TestCase):
 
 
 @unittest.skipIf(
-    not core.is_compiled_with_cuda() or get_cuda_version() < 11800,
-    "fp8 support in CUDA need CUDA version >= 11.8.",
+    not core.is_compiled_with_cuda() or not check_fp8_support(),
+    "Fp8 matmul requires CUDA >= 12.1 on Ada arch or hopper arch",
 )
 class TestFP8MatmulOp(unittest.TestCase):
     def setUp(self):
