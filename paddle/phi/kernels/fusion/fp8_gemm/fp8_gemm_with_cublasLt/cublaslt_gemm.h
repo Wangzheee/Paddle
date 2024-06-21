@@ -955,9 +955,13 @@ void cublaslt_fp8_fp8_fp16_gemm(
     const float scale,  // only support per-tensor quantization
     const std::string& activation_type,
     DenseTensor* out) {
-  PADDLE_ENFORCE_EQ(x.dims().size(),
-                    y.dims().size(),
-                    "x_dims.size needs to equal to y_dims.size");
+  PADDLE_ENFORCE_EQ(x.dims().size() == y.dims().size(),
+                    true,
+                    phi::errors::InvalidArgument(
+                        "FP8 gemm x_dims.size, must equal to y_dims.size,"
+                        "x_dims.size = %d, but y_dims.size = %d",
+                        x.dims().size(),
+                        y.dims().size()));
 
   int rank = x.dims().size();
   int m = transpose_x ? x.dims()[rank - 1] : x.dims()[rank - 2];
@@ -965,14 +969,28 @@ void cublaslt_fp8_fp8_fp16_gemm(
   int k = transpose_x ? x.dims()[rank - 2] : x.dims()[rank - 1];
 
   int y_k = transpose_y ? y.dims()[rank - 1] : y.dims()[rank - 2];
-  PADDLE_ENFORCE_EQ(k, y_k, "x_k needs to equal to y_k");
+  PADDLE_ENFORCE_EQ(
+      k == y_k,
+      true,
+      phi::errors::InvalidArgument(
+          "FP8 gemm x_k needs to equal to y_k, x_k = %d, but y_k = %d",
+          k,
+          y_k));
 
   if (bias) {
     PADDLE_ENFORCE_EQ(
-        bias->dims()[0], n, "bias_vecotr_dim needs to equal to n");
+        bias->dims()[0] == n,
+        true,
+        phi::errors::InvalidArgument("FP8 gemm bias_vecotr_dim needs to equal "
+                                     "to n, n = %d, but bias_vector_dim = %d",
+                                     n,
+                                     bias->dims()[0]));
   }
 
-  PADDLE_ENFORCE_EQ(k % 16, 0, "fp8 matmul need k % 16 = 0.");
+  PADDLE_ENFORCE_EQ(
+      k % 16 == 0,
+      true,
+      phi::errors::InvalidArgument("FP8 gemm need k % 16 = 0, but k = %d", k));
 
   ctx.template Alloc<phi::dtype::float16>(out);
   int batch_count = 1;
@@ -994,9 +1012,13 @@ void cublaslt_fp8_fp8_bf16_gemm(
     const float scale,  // only support per-tensor quantization
     const std::string& activation_type,
     DenseTensor* out) {
-  PADDLE_ENFORCE_EQ(x.dims().size(),
-                    y.dims().size(),
-                    "x_dims.size needs to equal to y_dims.size");
+  PADDLE_ENFORCE_EQ(x.dims().size() == y.dims().size(),
+                    true,
+                    phi::errors::InvalidArgument(
+                        "FP8 gemm x_dims.size, must equal to y_dims.size,"
+                        "x_dims.size = %d, but y_dims.size = %d",
+                        x.dims().size(),
+                        y.dims().size()));
 
   int rank = x.dims().size();
   int m = transpose_x ? x.dims()[rank - 1] : x.dims()[rank - 2];
@@ -1004,14 +1026,28 @@ void cublaslt_fp8_fp8_bf16_gemm(
   int k = transpose_x ? x.dims()[rank - 2] : x.dims()[rank - 1];
 
   int y_k = transpose_y ? y.dims()[rank - 1] : y.dims()[rank - 2];
-  PADDLE_ENFORCE_EQ(k, y_k, "x_k needs to equal to y_k");
+  PADDLE_ENFORCE_EQ(
+      k == y_k,
+      true,
+      phi::errors::InvalidArgument(
+          "FP8 gemm x_k needs to equal to y_k, x_k = %d, but y_k = %d",
+          k,
+          y_k));
 
   if (bias) {
     PADDLE_ENFORCE_EQ(
-        bias->dims()[0], n, "bias_vecotr_dim needs to equal to n");
+        bias->dims()[0] == n,
+        true,
+        phi::errors::InvalidArgument("FP8 gemm bias_vecotr_dim needs to equal "
+                                     "to n, n = %d, but bias_vector_dim = %d",
+                                     n,
+                                     bias->dims()[0]));
   }
 
-  PADDLE_ENFORCE_EQ(k % 16, 0, "fp8 matmul need k % 16 = 0.");
+  PADDLE_ENFORCE_EQ(
+      k % 16 == 0,
+      true,
+      phi::errors::InvalidArgument("FP8 gemm need k % 16 = 0, but k = %d", k));
 
   ctx.template Alloc<phi::dtype::bfloat16>(out);
   int batch_count = 1;
