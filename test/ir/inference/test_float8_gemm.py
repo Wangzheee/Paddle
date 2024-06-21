@@ -67,7 +67,7 @@ class FP16TestNet(paddle.nn.Layer):
             transpose_x=False,
             transpose_y=True,
         )
-        return output
+        return paddle.cast(output, "float32")
 
 
 @unittest.skipIf(
@@ -146,7 +146,7 @@ class BF16TestNet(paddle.nn.Layer):
             transpose_x=False,
             transpose_y=True,
         )
-        return output
+        return paddle.cast(output, "float32")
 
 
 @unittest.skipIf(
