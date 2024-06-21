@@ -55,7 +55,7 @@ def check_fp8_support() -> bool:
     return True
 
 
-class TestNet(paddle.nn.Layer):
+class FP16TestNet(paddle.nn.Layer):
     def __init__(self):
         super().__init__()
 
@@ -74,11 +74,11 @@ class TestNet(paddle.nn.Layer):
     not core.is_compiled_with_cuda() or not check_fp8_support(),
     "Fp8 matmul requires CUDA >= 12.1 on Ada arch or hopper arch",
 )
-class TestFP8Gemm(unittest.TestCase):
+class TestFP8FP16Gemm(unittest.TestCase):
     def setUp(self):
         paddle.disable_static()
-        self.test_model = TestNet()
-        self.path_prefix = "./tmp_model/model"
+        self.test_model = FP16TestNet()
+        self.path_prefix = "./tmp_fp16_model/model"
         paddle.jit.save(
             self.test_model,
             self.path_prefix,
@@ -127,17 +127,90 @@ class TestFP8Gemm(unittest.TestCase):
 
         return results[0]
 
-    def test_cast(self):
-        self.dtype_dict = {
-            "float8_e4m3fn": core.VarDesc.VarType.FP8_E4M3FN,
-            "float8_e5m2": core.VarDesc.VarType.FP8_E5M2,
-        }
+    def test(self):
         paddle.device.set_device("gpu")
-
         fp8_out = self.inference()
-        print("fp8_out: ", fp8_out)
         fp32_out = np.dot(self.x, np.transpose(self.y))
         np.testing.assert_allclose(fp8_out, fp32_out, rtol=1e-5, atol=1e-5)
+
+
+class BF16TestNet(paddle.nn.Layer):
+    def __init__(self):
+        super().__init__()
+
+    def forward(self, input1, input2):
+        type = "float8_e4m3fn"
+        output = paddle.linalg.fp8_fp8_bf16_gemm_fused(
+            paddle.cast(input1, type),
+            paddle.cast(input2, type),
+            transpose_x=False,
+            transpose_y=True,
+        )
+        return output
+
+
+@unittest.skipIf(
+    not core.is_compiled_with_cuda() or not check_fp8_support(),
+    "Fp8 matmul requires CUDA >= 12.1 on Ada arch or hopper arch",
+)
+class TestFP8BF16Gemm(unittest.TestCase):
+    def setUp(self):
+        paddle.disable_static()
+        self.test_model = BF16TestNet()
+        self.path_prefix = "./tmp_bf16_model/model"
+        paddle.jit.save(
+            self.test_model,
+            self.path_prefix,
+            input_spec=[
+                paddle.static.InputSpec(
+                    shape=[16, 64], dtype='float32', name="input1"
+                ),
+                paddle.static.InputSpec(
+                    shape=[32, 64], dtype='float32', name="input2"
+                ),
+            ],
+        )
+        self.x = np.ones([16, 64], np.float32)
+        self.y = np.ones([32, 64], np.float32)
+
+    def inference(self):
+        # Config
+        config = Config(self.path_prefix + ".pdmodel", "")
+        config.enable_use_gpu(100, 0, PrecisionType.Float32)
+        config.enable_new_executor()
+
+        # predictor
+        predictor = create_predictor(config)
+
+        # inference
+        input_names = predictor.get_input_names()
+
+        input_tensor_0 = predictor.get_input_handle(input_names[0])
+        input_tensor_0.reshape(self.x.shape)
+        input_tensor_0.copy_from_cpu(self.x)
+
+        input_tensor_1 = predictor.get_input_handle(input_names[1])
+        input_tensor_1.reshape(self.y.shape)
+        input_tensor_1.copy_from_cpu(self.y)
+
+        # run
+        predictor.run()
+
+        results = []
+        # get out data from output tensor
+        output_names = predictor.get_output_names()
+        for i, name in enumerate(output_names):
+            output_tensor = predictor.get_output_handle(name)
+            output_data = output_tensor.copy_to_cpu()
+            results.append(output_data)
+
+        return results[0]
+
+    def test(self):
+        paddle.device.set_device("gpu")
+        fp8_out = self.inference()
+        fp32_out = np.dot(self.x, np.transpose(self.y))
+        np.testing.assert_allclose(fp8_out, fp32_out, rtol=1e-2, atol=1e-2)
 
 
 if __name__ == "__main__":
