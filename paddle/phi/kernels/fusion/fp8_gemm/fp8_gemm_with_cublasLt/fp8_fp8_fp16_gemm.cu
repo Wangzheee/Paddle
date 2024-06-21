@@ -13,16 +13,14 @@
 // limitations under the License.
 
 #include <iostream>
-#if CUDA_VERSION >= 12100 && defined(__CUDA_ARCH__) && __CUDA_ARCH__ >= 890
-#include "paddle/phi/kernels/fusion/fp8_gemm/fp8_gemm_with_cublasLt/cublaslt_gemm.h"
-#endif
-
 #include "paddle/phi/backends/gpu/gpu_context.h"
 #include "paddle/phi/common/memory_utils.h"
 #include "paddle/phi/core/dense_tensor.h"
 #include "paddle/phi/core/enforce.h"
 #include "paddle/phi/core/kernel_registry.h"
-
+#if CUDA_VERSION >= 12010
+#include "paddle/phi/kernels/fusion/fp8_gemm/fp8_gemm_with_cublasLt/cublaslt_gemm.h"
+#endif
 namespace phi {
 namespace fusion {
 namespace cutlass_internal {
@@ -38,7 +36,7 @@ void fp8_fp8_fp16_gemm(
     const float scale,  // only support per-tensor quantization
     const std::string& activation_type,
     DenseTensor* out) {
-#if CUDA_VERSION >= 12100 && defined(__CUDA_ARCH__) && __CUDA_ARCH__ >= 890
+#if CUDA_VERSION >= 12010
   static_assert(std::is_same<Context, phi::GPUContext>::value,
                 "fp8_fp8_gemm must be in GPU");
   cublaslt_fp8_fp8_fp16_gemm<Context>(

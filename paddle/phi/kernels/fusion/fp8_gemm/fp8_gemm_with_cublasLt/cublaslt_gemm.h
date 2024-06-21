@@ -545,7 +545,7 @@ class CublasLtAlgoCache {
       }
     }
   }
-  ~CublasLtAlgoCache() { serialize_algo_cache_file() }
+  ~CublasLtAlgoCache() { serialize_algo_cache_file(); }
 
  private:
   explicit CublasLtAlgoCache(int search_times)
